@@ -1,0 +1,28 @@
+# ------------------------------------------------------------ মূল
+Django>=5.2,<6.0
+djangorestframework>=3.16
+djangorestframework-simplejwt>=5.5
+django-cors-headers>=4.7
+django-filter>=25.1
+Pillow>=11.0
+python-dotenv>=1.0
+
+# ------------------------------------------------- API ডকুমেন্টেশন
+# DRF তাদের নিজস্ব স্কিমা জেনারেটর বাতিল করে এখন এটাই সুপারিশ করে।
+# [sidecar] দিলে Swagger UI-র ফাইল সাথে আসে — CDN লাগে না, অফলাইনেও চলে।
+drf-spectacular[sidecar]>=0.28
+
+# ------------------------------------------------------------ টেস্ট
+pytest>=8.0
+pytest-django>=4.9
+pytest-cov>=6.0
+
+# ------------------------------------------------------- ডেটাবেস
+# PostgreSQL ব্যবহার করতে নিচের লাইনটা চালু করুন এবং .env-এ
+# DB_ENGINE=django.db.backends.postgresql দিন
+# psycopg[binary]>=3.2
+
+# ------------------------------------------------------ প্রোডাকশন
+# লাইভ সার্ভারে runserver নয় — gunicorn ব্যবহার করুন
+# gunicorn>=23.0
+# whitenoise>=6.8

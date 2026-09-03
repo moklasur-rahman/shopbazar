@@ -1,0 +1,40 @@
+# ---------- নির্ভরতা ও বিল্ড ----------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# ---------- গোপন তথ্য ----------
+# ⚠️ .env কখনো কমিট করবেন না — এতে API URL ও কনফিগ থাকে।
+# শেয়ার করার জন্য .env.example ফাইলটা আছে, ওটাই কমিট হয়।
+.env
+.env.*
+!.env.example
+
+# ---------- ব্যাকএন্ড (আলাদা .gitignore-ও আছে) ----------
+backend/.venv/
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+backend/logs/
+__pycache__/
+*.py[cod]
+
+# ---------- এডিটর ও সিস্টেম ----------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ---------- লগ ----------
+npm-debug.log*
+yarn-error.log*
+*.log
+
+# ---------- টেস্ট ----------
+coverage/
+.pytest_cache/
+htmlcov/
+.coverage

@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+/* ==================================================================
+   ডিজাইন সিস্টেম
+   ------------------------------------------------------------------
+   Tailwind v4 এর @theme ব্লকে টোকেন দিলে সরাসরি ক্লাস পাওয়া যায় —
+   bg-brand-500, text-ink, border-line, shadow-md এভাবে।
+
+   রঙের নীতি: পাতা প্রায় পুরোটাই নিউট্রাল থাকে, রঙ খরচ হয় শুধু
+   অ্যাকশন আর অবস্থা বোঝাতে। এতেই ডিজাইন পেশাদার দেখায়।
+   ================================================================== */
+
+@theme {
+  /* ---------- ব্র্যান্ড: গভীর এমারাল্ড ---------- */
+  --color-brand-50: #edf8f3;
+  --color-brand-100: #cfeee0;
+  --color-brand-200: #a1dcc2;
+  --color-brand-300: #68c29f;
+  --color-brand-400: #33a47c;
+  --color-brand-500: #128662;
+  --color-brand-600: #0c6d4f;
+  --color-brand-700: #0a5741;
+  --color-brand-800: #094534;
+  --color-brand-900: #07372b;
+
+  /* ---------- অ্যাকসেন্ট: উষ্ণ সোনালি (অফার ও CTA) ---------- */
+  --color-accent-50: #fff8e8;
+  --color-accent-100: #fdebbe;
+  --color-accent-200: #fad684;
+  --color-accent-300: #f5bb45;
+  --color-accent-400: #eda31d;
+  --color-accent-500: #cf8709;
+  --color-accent-600: #a56a07;
+
+  /* ---------- নিউট্রাল: সবুজের দিকে সামান্য হেলানো ---------- */
+  --color-ink: #10201a;
+  --color-ink-2: #3a4b43;
+  --color-muted: #6b7a72;
+  --color-line: #e4ebe7;
+  --color-line-2: #c9d5cf;
+  --color-canvas: #f4f8f6;
+  --color-surface: #ffffff;
+
+  /* ---------- সেমান্টিক ---------- */
+  --color-sale: #d63a3a;
+  --color-ok: #12805f;
+  --color-warn: #b0790f;
+  --color-danger: #bf3025;
+  --color-verified: #1d6fd4; /* যাচাই করা ব্যাজ — ব্র্যান্ড সবুজের সাথে যেন না মেশে */
+
+  /* ---------- টাইপোগ্রাফি ---------- */
+  --font-display: "Anek Bangla", "Hind Siliguri", system-ui, sans-serif;
+  --font-sans: "Hind Siliguri", "Segoe UI", system-ui, sans-serif;
+
+  /* ---------- আকৃতি ---------- */
+  --radius-card: 0.875rem;
+
+  /* ---------- এলিভেশন: এক ধাপ করে গভীরতা ---------- */
+  --shadow-xs: 0 1px 2px rgb(16 32 26 / 0.05);
+  --shadow-soft: 0 1px 2px rgb(16 32 26 / 0.04), 0 2px 8px rgb(16 32 26 / 0.05);
+  --shadow-md: 0 2px 4px rgb(16 32 26 / 0.05), 0 8px 20px rgb(16 32 26 / 0.07);
+  --shadow-lift: 0 4px 8px rgb(16 32 26 / 0.06), 0 16px 36px rgb(16 32 26 / 0.11);
+  --shadow-glow: 0 0 0 4px rgb(18 134 98 / 0.12);
+}
+
+/* ------------------------------ বেস ------------------------------ */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* আইফোনের নিচের বার যেন কনটেন্ট ঢেকে না ফেলে */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    line-height: 1.28;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+  }
+
+  /* দাম ও সংখ্যা কলামে সমান দেখানোর জন্য */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-900);
+  }
+
+  /* সব ব্রাউজারে একরকম, সরু স্ক্রলবার */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-2) transparent;
+  }
+}
+
+/* --------------------------- ইউটিলিটি --------------------------- */
+
+@layer components {
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .line-clamp-2-safe {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ব্র্যান্ড গ্রেডিয়েন্ট — হিরো আর বড় CTA-তে সংযতভাবে */
+  .bg-brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-brand-700) 0%,
+      var(--color-brand-600) 45%,
+      var(--color-brand-500) 100%
+    );
+  }
+
+  .bg-dark-gradient {
+    background-image: linear-gradient(150deg, #0d1b16 0%, #12241d 55%, #163025 100%);
+  }
+
+  /* হালকা ডট প্যাটার্ন — খালি জায়গা যেন ফাঁকা না লাগে */
+  .bg-dots {
+    background-image: radial-gradient(rgb(255 255 255 / 0.09) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  /* সেকশনের ভেতরের সর্বোচ্চ প্রস্থ ও প্যাডিং — সব পাতায় একই ছন্দ */
+  .container-page {
+    margin-inline: auto;
+    max-width: 80rem;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+}
+
+/* --------------------------- অ্যানিমেশন --------------------------- */
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.6), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

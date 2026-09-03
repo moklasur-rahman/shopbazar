@@ -1,0 +1,12 @@
+# সব টেক্সট ফাইলে গিটের ভেতরে LF, চেকআউটে যার যার OS অনুযায়ী।
+# এটা না থাকলে Windows আর Linux-এ কাজ করলে পুরো ফাইল "বদলে গেছে" দেখায়।
+* text=auto eol=lf
+
+# বাইনারি — গিট যেন লাইন এন্ডিং নিয়ে হাত না দেয়
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.sqlite3 binary

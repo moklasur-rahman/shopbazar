@@ -1,0 +1,19 @@
+# ⚠️ .env কখনো কমিট করবেন না — এতে DJANGO_SECRET_KEY ও ডেটাবেসের
+# পাসওয়ার্ড থাকে। একবার গিট ইতিহাসে ঢুকলে মোছা খুব কঠিন।
+.env
+.env.*
+!.env.example
+
+.venv/
+__pycache__/
+*.py[cod]
+
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+logs/
+
+.pytest_cache/
+.coverage
+htmlcov/
