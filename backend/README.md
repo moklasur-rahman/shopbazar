@@ -20,6 +20,43 @@ py -3.13 -m venv .venv
 
 সার্ভার: <http://127.0.0.1:8000> · অ্যাডমিন: <http://127.0.0.1:8000/django-admin/>
 
+### API ডকুমেন্টেশন
+
+| ঠিকানা | কী |
+|--------|-----|
+| <http://127.0.0.1:8000/api/docs/> | **Swagger UI** — ব্রাউজার থেকেই এন্ডপয়েন্ট পরীক্ষা করা যায় |
+| <http://127.0.0.1:8000/api/redoc/> | ReDoc — পড়ার জন্য সুন্দর |
+| <http://127.0.0.1:8000/api/schema/> | OpenAPI 3 স্কিমা (YAML) |
+
+Swagger UI-তে **Authorize** বোতামে `Bearer <access-token>` দিলে
+লগইন-লাগে এমন এন্ডপয়েন্টও সেখান থেকেই চালানো যায়।
+
+### টেস্ট
+
+```bash
+.venv\Scripts\python.exe -m pytest              # ৮৭টি টেস্ট
+.venv\Scripts\python.exe -m pytest --cov=apps   # কভারেজসহ
+.venv\Scripts\python.exe -m pytest -k pricing   # শুধু দামের টেস্ট
+```
+
+`tests/` ফোল্ডারে তিনটা ফাইল:
+
+| ফাইল | কী পাহারা দেয় |
+|------|----------------|
+| `test_pricing.py` | ডেলিভারি চার্জ ও কুপনের নিয়ম (ডেটাবেস ছাড়াই) |
+| `test_orders.py` | পার্সেলে ভাগ, কমিশন, স্টক লক, snapshot |
+| `test_security.py` | কে কার ডেটা দেখতে পারে না |
+
+### লাইভে যাওয়ার আগের চেক
+
+```bash
+set DJANGO_DEBUG=False
+.venv\Scripts\python.exe manage.py check --deploy
+```
+
+নিরাপত্তার ওয়ার্নিং শূন্য আসা উচিত। (drf_spectacular-এর কয়েকটা
+স্কিমা-নামকরণের ওয়ার্নিং থাকতে পারে — ওগুলো নিরাপত্তার নয়।)
+
 অ্যাডমিন লগইন বানাতে:
 
 ```bash

@@ -30,14 +30,14 @@ class AdminVendorListSerializer(serializers.ModelSerializer):
             "product_count", "created_at",
         ]
 
-    def get_logo(self, obj):
+    def get_logo(self, obj) -> str | None:
         return absolute(self.context.get("request"), obj.logo_display)
 
-    def get_documents_ready(self, obj):
+    def get_documents_ready(self, obj) -> bool:
         kyc = getattr(obj, "kyc", None)
         return bool(kyc and kyc.nid_number and kyc.nid_front and kyc.nid_back)
 
-    def get_product_count(self, obj):
+    def get_product_count(self, obj) -> int:
         cached = getattr(obj, "product_total", None)
         return cached if cached is not None else obj.products.count()
 
@@ -56,10 +56,10 @@ class AdminVendorDetailSerializer(AdminVendorListSerializer):
             "rating_avg", "rating_count", "kyc", "stats",
         ]
 
-    def get_banner(self, obj):
+    def get_banner(self, obj) -> str | None:
         return absolute(self.context.get("request"), obj.banner_display)
 
-    def get_kyc(self, obj):
+    def get_kyc(self, obj) -> dict | None:
         kyc = getattr(obj, "kyc", None)
         if not kyc:
             return None
@@ -80,7 +80,7 @@ class AdminVendorDetailSerializer(AdminVendorListSerializer):
             "review_note": kyc.review_note,
         }
 
-    def get_stats(self, obj):
+    def get_stats(self, obj) -> dict | None:
         parcels = VendorOrder.objects.filter(vendor=obj).exclude(status="cancelled")
         return {
             "orders": parcels.count(),
@@ -102,7 +102,7 @@ class AdminProductSerializer(serializers.ModelSerializer):
             "category_name", "price", "stock", "status", "sold_count", "created_at",
         ]
 
-    def get_image(self, obj):
+    def get_image(self, obj) -> str | None:
         first = obj.images.first()
         return absolute(self.context.get("request"), first.display_url) if first else None
 
@@ -120,7 +120,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             "payment_method", "payment_status", "grand_total", "status", "parcels",
         ]
 
-    def get_parcels(self, obj):
+    def get_parcels(self, obj) -> list[dict]:
         return [
             {
                 "id": parcel.id,
@@ -147,5 +147,5 @@ class AdminPayoutSerializer(serializers.ModelSerializer):
             "reference", "entry_count", "created_at", "paid_at",
         ]
 
-    def get_entry_count(self, obj):
+    def get_entry_count(self, obj) -> int:
         return obj.entries.count()

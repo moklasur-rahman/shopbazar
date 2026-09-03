@@ -21,7 +21,13 @@ npm run dev
 npm run build     # প্রোডাকশন বিল্ড → dist/
 npm run preview   # বিল্ড করা সাইট দেখা
 npm run lint      # ESLint — বাগ ও অব্যবহৃত কোড ধরার জন্য
+npm test          # Vitest — ২৭টি টেস্ট (টাকার হিসাব)
+npm run test:watch  # ফাইল বদলালেই আবার চলবে
 ```
+
+> `src/lib/pricing.test.js` ব্যাকএন্ডের `backend/tests/test_pricing.py` এর
+> আয়না। দুই জায়গার নিয়ম এক না থাকলে ক্রেতা কার্টে এক টাকা দেখবেন,
+> চেকআউটে আরেক — তাই একটা বদলালে অন্যটাও বদলাবেন।
 
 ### ডেমো লগইন
 

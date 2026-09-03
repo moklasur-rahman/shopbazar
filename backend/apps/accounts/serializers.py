@@ -37,7 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
         # নিজেকে অ্যাডমিন বানাতে না পারে
         read_only_fields = ["is_staff"]
 
-    def get_vendor(self, obj):
+    def get_vendor(self, obj) -> dict | None:
         """
         status টাও পাঠানো হয় — ফ্রন্টএন্ড এটা দেখেই ঠিক করে নতুন বিক্রেতাকে
         ড্যাশবোর্ড দেখাবে নাকি "অনুমোদনের অপেক্ষায়" পাতা। এটা ছাড়া
@@ -53,7 +53,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_verified": vendor.is_verified,
         }
 
-    def get_avatar(self, obj):
+    def get_avatar(self, obj) -> str | None:
         return obj.avatar.url if obj.avatar else None
 
 

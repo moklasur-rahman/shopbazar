@@ -81,7 +81,12 @@ class OrderViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
             self.throttle_scope = "checkout"
         return super().get_throttles()
 
+    queryset = Order.objects.none()  # স্কিমা জেনারেটরের জন্য
+
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return Order.objects.none()
+
         # সবসময় নিজের অর্ডার — URL-এ অন্য কারো নম্বর দিলেও কিছু পাওয়া যাবে না
         return (
             Order.objects.filter(customer=self.request.user)

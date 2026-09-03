@@ -27,7 +27,7 @@ class AdminCategorySerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {"slug": {"required": False, "allow_blank": True}}
 
-    def get_product_count(self, obj):
+    def get_product_count(self, obj) -> int:
         return obj.products.count()
 
     def validate(self, attrs):
@@ -58,7 +58,7 @@ class AdminCouponSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["used_count", "created_at"]
 
-    def get_scope(self, obj):
+    def get_scope(self, obj) -> str:
         return "vendor" if obj.vendor_id else "platform"
 
     def validate_code(self, value):
@@ -94,7 +94,7 @@ class AdminBannerSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {"image": {"required": False, "allow_null": True}}
 
-    def get_preview(self, obj):
+    def get_preview(self, obj) -> str | None:
         return absolute(self.context.get("request"), obj.display_url)
 
 
@@ -110,11 +110,11 @@ class AdminUserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_shop_name(self, obj):
+    def get_shop_name(self, obj) -> str:
         vendor = getattr(obj, "vendor", None)
         return vendor.shop_name if vendor else ""
 
-    def get_order_count(self, obj):
+    def get_order_count(self, obj) -> int:
         cached = getattr(obj, "orders_total", None)
         return cached if cached is not None else obj.orders.count()
 

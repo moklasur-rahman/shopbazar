@@ -109,12 +109,17 @@ class VerifyOtpView(APIView):
         return Response({"verified": True, "detail": "নম্বরটি যাচাই করা হয়েছে।"})
 
 
+@extend_schema(tags=["auth"])
 class AddressViewSet(viewsets.ModelViewSet):
     serializer_class = AddressSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
+    queryset = Address.objects.none()  # স্কিমা জেনারেটরের জন্য
 
     def get_queryset(self):
+        # স্কিমা তৈরির সময় DRF anonymous ইউজার দিয়ে ডাকে — তখন ফিল্টার করলে এরর
+        if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
+            return Address.objects.none()
         # সবসময় নিজের ঠিকানা — URL থেকে আসা কোনো আইডি বিশ্বাস করা হয় না
         return Address.objects.filter(user=self.request.user)
 

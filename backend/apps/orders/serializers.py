@@ -17,7 +17,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "unit_price", "quantity", "can_review",
         ]
 
-    def get_image(self, obj):
+    def get_image(self, obj) -> str | None:
         return absolute(self.context.get("request"), obj.image)
 
 

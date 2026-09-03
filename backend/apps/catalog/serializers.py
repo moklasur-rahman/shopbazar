@@ -28,7 +28,7 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ["id", "slug", "name", "icon", "children"]
 
-    def get_children(self, obj):
+    def get_children(self, obj) -> list[str]:
         # ফ্রন্টএন্ড শুধু নামের তালিকা দেখায় (ড্রয়ারে গণনা করতে)।
         # ভিউতে prefetch_related("children") থাকায় এটা বাড়তি কুয়েরি চালায় না।
         return [child.name for child in obj.children.all() if child.is_active]
@@ -47,7 +47,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
         model = ProductImage
         fields = ["image"]
 
-    def get_image(self, obj):
+    def get_image(self, obj) -> str | None:
         return absolute(self.context.get("request"), obj.display_url)
 
 
@@ -102,10 +102,10 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ["id", "rating", "comment", "author_name", "created_at",
                   "is_verified_purchase", "photos"]
 
-    def get_author_name(self, obj):
+    def get_author_name(self, obj) -> str:
         return obj.display_author()
 
-    def get_photos(self, obj):
+    def get_photos(self, obj) -> list[str]:
         request = self.context.get("request")
         return [absolute(request, p.display_url) for p in obj.photos.all() if p.display_url]
 
@@ -122,5 +122,5 @@ class BannerSerializer(serializers.ModelSerializer):
         model = Banner
         fields = ["id", "title", "subtitle", "cta", "href", "image", "tone"]
 
-    def get_image(self, obj):
+    def get_image(self, obj) -> str | None:
         return absolute(self.context.get("request"), obj.display_url)

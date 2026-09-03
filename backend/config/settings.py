@@ -197,6 +197,10 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
     "REDOC_DIST": "SIDECAR",
     "COMPONENT_SPLIT_REQUEST": True,
+    # কয়েকটা মডেলে একই নামের `status` ফিল্ড আছে, তাই স্কিমায়
+    # StatusA4cEnum ধরনের নাম তৈরি হয় — শুধু ডকুমেন্টেশনের নাম, আচরণে
+    # কোনো প্রভাব নেই। ENUM_NAME_OVERRIDES দিয়ে ঠিক করার চেষ্টা করা
+    # হয়েছিল, কিন্তু তাতে ওয়ার্নিং উল্টো বেড়ে যায়।
     "TAGS": [
         {"name": "auth", "description": "রেজিস্ট্রেশন, লগইন, প্রোফাইল"},
         {"name": "catalog", "description": "ক্যাটাগরি, পণ্য, রিভিউ, ব্যানার"},
