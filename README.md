@@ -1,6 +1,9 @@
-# শপবাজার — মাল্টি-ভেন্ডর মার্কেটপ্লেস (React)
+# শপবাজার — মাল্টি-ভেন্ডর মার্কেটপ্লেস
 
-React 19 · Vite 7 · Tailwind CSS 4 · React Router 7
+[![CI](https://github.com/moklasur-rahman/shopbazar/actions/workflows/ci.yml/badge.svg)](https://github.com/moklasur-rahman/shopbazar/actions/workflows/ci.yml)
+
+**ফ্রন্টএন্ড:** React 19 · Vite 7 · Tailwind CSS 4 · React Router 7
+**ব্যাকএন্ড:** Django 5.2 · DRF · SimpleJWT · PostgreSQL — [`backend/README.md`](backend/README.md)
 
 এক অর্ডারে একাধিক বিক্রেতার পণ্য — সেই কাঠামোর উপর দাঁড়ানো একটা সম্পূর্ণ
 মার্কেটপ্লেস ফ্রন্টএন্ড। এখন ব্যাকএন্ড ছাড়াই চলে (ব্রাউজারের ভেতরের mock ডেটা দিয়ে),
