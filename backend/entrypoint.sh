@@ -39,7 +39,18 @@ sys.exit(0 if Product.objects.exists() else 1)
     echo "==> seed: ডেটা আছে, বাদ দেওয়া হলো"
   else
     echo "==> seed: ডেটাবেস খালি, ডেমো ডেটা বসানো হচ্ছে"
-    python manage.py seed
+    python manage.py seed --password "${SEED_PASSWORD:-1234}"
+
+    if [ -z "$SEED_PASSWORD" ]; then
+      echo ""
+      echo "    ****************************************************"
+      echo "    * সতর্কতা: ডেমো ক্রেতা ও বিক্রেতার পাসওয়ার্ড '1234'  *"
+      echo "    * ইন্টারনেটে খোলা সার্ভারে এভাবে চালাবেন না।         *"
+      echo "    * .env.docker-এ SEED_ON_EMPTY=false দিন, অথবা      *"
+      echo "    * SEED_PASSWORD দিয়ে নিজের পাসওয়ার্ড বসান।          *"
+      echo "    ****************************************************"
+      echo ""
+    fi
   fi
 fi
 

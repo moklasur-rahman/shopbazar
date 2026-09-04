@@ -35,8 +35,12 @@ class AdminCategoryViewSet(StaffViewSet):
     serializer_class = AdminCategorySerializer
 
     def get_queryset(self):
-        queryset = Category.objects.select_related("parent").order_by(
-            "parent__sort_order", "sort_order", "name"
+        queryset = (
+            Category.objects.select_related("parent")
+            # গণনাটা এখানে না করলে সিরিয়ালাইজার প্রতিটি সারির জন্য আলাদা
+            # COUNT চালাত — ৩৬টা ক্যাটাগরিতে ৩৮টা কোয়েরি হয়ে যেত
+            .annotate(product_total=Count("products"))
+            .order_by("parent__sort_order", "sort_order", "name")
         )
         if self.request.query_params.get("top_level") == "true":
             queryset = queryset.filter(parent__isnull=True)

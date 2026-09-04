@@ -14,6 +14,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status as http_status
@@ -62,24 +63,41 @@ class AdminStatsView(StaffView):
 
         parcels = VendorOrder.objects.exclude(status=VendorOrder.Status.CANCELLED)
 
-        gmv_today = parcels.filter(created_at__gte=today).aggregate(
-            total=Sum("subtotal")
-        )["total"] or Decimal("0")
-        gmv_month = parcels.filter(created_at__gte=month_start).aggregate(
-            total=Sum("subtotal")
-        )["total"] or Decimal("0")
-        commission_month = parcels.filter(created_at__gte=month_start).aggregate(
-            total=Sum("commission_amount")
-        )["total"] or Decimal("0")
+        # আজ ও এই মাসের হিসাব একটাই কোয়েরিতে। আগে তিনবার একই টেবিলে
+        # যাওয়া হতো — filter=Q(...) দিয়ে সেটা একবারে নামানো যায়।
+        money = parcels.filter(created_at__gte=month_start).aggregate(
+            gmv_today=Sum("subtotal", filter=Q(created_at__gte=today)),
+            gmv_month=Sum("subtotal"),
+            commission_month=Sum("commission_amount"),
+        )
+        gmv_today = money["gmv_today"] or Decimal("0")
+        gmv_month = money["gmv_month"] or Decimal("0")
+        commission_month = money["commission_month"] or Decimal("0")
 
-        # গত ৭ দিনের বিক্রি
+        # গত ৭ দিনের বিক্রি — একটাই কোয়েরিতে।
+        #
+        # আগে প্রতিটি দিনের জন্য আলাদা aggregate চলত, মানে শুধু এই
+        # অংশটাতেই ৭টা কোয়েরি। ড্যাশবোর্ড অ্যাডমিনের প্রথম পাতা, তাই
+        # এখানে বাড়তি রাউন্ড-ট্রিপ সবচেয়ে বেশি টের পাওয়া যায়।
+        #
+        # TruncDate settings.TIME_ZONE (Asia/Dhaka) ধরে দিন কাটে, আর
+        # `today`-ও localtime থেকে আসা — তাই দুই দিক মেলে।
+        week_start = today - timedelta(days=6)
+        daily = {
+            row["day"]: row["total"]
+            for row in parcels.filter(created_at__gte=week_start)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(total=Sum("subtotal"))
+        }
+
         trend = []
         for offset in range(6, -1, -1):
-            day_start = today - timedelta(days=offset)
-            amount = parcels.filter(
-                created_at__gte=day_start, created_at__lt=day_start + timedelta(days=1)
-            ).aggregate(total=Sum("subtotal"))["total"] or Decimal("0")
-            trend.append({"day": BN_WEEKDAYS[day_start.weekday()], "amount": amount})
+            day = today - timedelta(days=offset)
+            trend.append({
+                "day": BN_WEEKDAYS[day.weekday()],
+                "amount": daily.get(day.date(), Decimal("0")),
+            })
 
         vendor_counts = Vendor.objects.aggregate(
             total=Count("id"),
@@ -93,27 +111,37 @@ class AdminStatsView(StaffView):
             live=Count("id", filter=Q(status=Product.Status.LIVE)),
         )
 
+        order_counts = Order.objects.aggregate(
+            total=Count("id"),
+            today=Count("id", filter=Q(created_at__gte=today)),
+        )
+
+        # অপেক্ষমাণ পে-আউটের সংখ্যা, টাকা আর "প্রসেসিং"-এর সংখ্যা —
+        # তিনটাই একই টেবিলের প্রশ্ন, তাই একটাই কোয়েরি
+        waiting = [Payout.Status.REQUESTED, Payout.Status.PROCESSING]
+        payout_stats = Payout.objects.aggregate(
+            pending_count=Count("id", filter=Q(status__in=waiting)),
+            pending_amount=Sum("amount", filter=Q(status__in=waiting)),
+            processing=Count("id", filter=Q(status=Payout.Status.PROCESSING)),
+        )
+
         return Response({
             "gmv_today": gmv_today,
             "gmv_month": gmv_month,
             "commission_month": commission_month,
-            "orders_today": Order.objects.filter(created_at__gte=today).count(),
-            "orders_total": Order.objects.count(),
+            "orders_today": order_counts["today"],
+            "orders_total": order_counts["total"],
             "customers": User.objects.filter(role=User.Role.CUSTOMER).count(),
             "vendors": vendor_counts,
             "products": product_counts,
-            "payouts_pending": Payout.objects.filter(
-                status__in=[Payout.Status.REQUESTED, Payout.Status.PROCESSING]
-            ).count(),
-            "payouts_pending_amount": Payout.objects.filter(
-                status__in=[Payout.Status.REQUESTED, Payout.Status.PROCESSING]
-            ).aggregate(total=Sum("amount"))["total"] or Decimal("0"),
+            "payouts_pending": payout_stats["pending_count"],
+            "payouts_pending_amount": payout_stats["pending_amount"] or Decimal("0"),
             "sales_trend": trend,
             # ড্যাশবোর্ডের "যা করা বাকি" তালিকা
             "todo": {
                 "vendor_approvals": vendor_counts["pending"],
                 "product_approvals": product_counts["pending"],
-                "payouts": Payout.objects.filter(status=Payout.Status.PROCESSING).count(),
+                "payouts": payout_stats["processing"],
             },
         })
 

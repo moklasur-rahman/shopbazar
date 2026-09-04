@@ -28,7 +28,10 @@ class AdminCategorySerializer(serializers.ModelSerializer):
         extra_kwargs = {"slug": {"required": False, "allow_blank": True}}
 
     def get_product_count(self, obj) -> int:
-        return obj.products.count()
+        # ভিউ annotate করে দিলে সেটাই — নাহলে (যেমন create/update-এর
+        # উত্তরে, যেখানে annotate থাকে না) গুনে নেওয়া হয়
+        cached = getattr(obj, "product_total", None)
+        return cached if cached is not None else obj.products.count()
 
     def validate(self, attrs):
         # নিজেকে নিজের প্যারেন্ট বানানো যাবে না — অসীম লুপ হবে
