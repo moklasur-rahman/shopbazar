@@ -1,0 +1,28 @@
+# সব এডিটরে একই নিয়ম — কে কোন এডিটর ব্যবহার করছে তাতে ডিফ বদলাবে না।
+# https://editorconfig.org  (VS Code, JetBrains, Vim সবাই এটা পড়ে)
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+[*.py]
+# PEP 8
+indent_size = 4
+max_line_length = 100
+
+[*.md]
+# মার্কডাউনে লাইনের শেষে দুইটা স্পেস মানে line break — মোছা যাবে না
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+
+[*.{yml,yaml,json}]
+indent_size = 2

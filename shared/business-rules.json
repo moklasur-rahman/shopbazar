@@ -1,0 +1,46 @@
+{
+  "$comment": [
+    "মার্কেটপ্লেসের ব্যবসার নিয়ম — একটাই সত্য।",
+    "",
+    "রানটাইমে ফ্রন্টএন্ড (frontend/src/config.js → RULES) আর ব্যাকএন্ড",
+    "(backend/config/settings.py → MARKETPLACE) নিজেদের কপি ব্যবহার করে,",
+    "কারণ দুইটা আলাদা Docker কনটেক্সটে বিল্ড হয় — একটা শেয়ার্ড ফাইল",
+    "দুই জায়গা থেকে ইমপোর্ট করা যায় না।",
+    "",
+    "কিন্তু দুই কপি আলাদা হয়ে গেলে ক্রেতা কার্টে এক টাকা দেখবেন আর",
+    "চেকআউটে আরেক। তাই দুই দিকেই একটা করে টেস্ট আছে যা এই ফাইলের সাথে",
+    "মিলিয়ে দেখে:",
+    "  backend/tests/test_business_rules.py",
+    "  frontend/src/lib/business-rules.test.js",
+    "",
+    "নিয়ম বদলাতে হলে: এই ফাইল + দুই কপি — তিন জায়গাতেই বদলান।",
+    "একটা ভুলে গেলে CI লাল হবে।"
+  ],
+
+  "defaultCommissionRate": 8,
+
+  "commissionByCategory": {
+    "electronics": 5,
+    "books": 6,
+    "grocery": 7,
+    "home": 9,
+    "kids": 9,
+    "fashion": 10,
+    "sports": 10,
+    "beauty": 12
+  },
+
+  "shipping": {
+    "insideDhaka": 60,
+    "outsideDhaka": 120,
+    "extraVendorMultiplier": 0.5,
+    "freeShippingThreshold": 2000
+  },
+
+  "payoutHoldDays": 7,
+  "maxQtyPerItem": 10,
+  "pageSize": 12,
+
+  "$backendOnly": "নিচেরটা শুধু ব্যাকএন্ডে ব্যবহার হয়, ফ্রন্টএন্ডে নেই",
+  "lowStockThreshold": 15
+}

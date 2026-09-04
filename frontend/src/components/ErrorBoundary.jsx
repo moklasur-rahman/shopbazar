@@ -1,6 +1,49 @@
 import { Component } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 
+const RELOAD_KEY = "sb.chunk-reload-at";
+
+/** এত সেকেন্ডের মধ্যে দ্বিতীয়বার রিলোড নয় */
+const RELOAD_COOLDOWN_MS = 15_000;
+
+/**
+ * এখন রিলোড করা যাবে কি না।
+ *
+ * শেষ কবে রিলোড করেছি সেটা সময় হিসেবে রাখা হয় — শুধু "করেছি কি না"
+ * নয়। কারণ রিলোডের পরেও যদি একই এরর আসে (মানে আসলেই কোড ভাঙা),
+ * তখন যেন অসীম রিলোডের ফাঁদে না পড়ে। "একবার হয়েছে" ধরনের পতাকা এই
+ * কাজটা করতে পারে না — রিলোডের পর সেটা মুছতেই হয়, আর মুছে দিলেই
+ * পরের এররে আবার রিলোড হয়ে লুপ তৈরি হয়।
+ */
+function shouldReload() {
+  try {
+    const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+    if (Date.now() - last < RELOAD_COOLDOWN_MS) return false;
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+    return true;
+  } catch {
+    // প্রাইভেট মোডে sessionStorage বন্ধ থাকতে পারে। তখন লুপ ঠেকানোর
+    // উপায় নেই, তাই রিলোডও করা হয় না — ব্যবহারকারী নিজে বোতাম চাপবেন।
+    return false;
+  }
+}
+
+/**
+ * এররটা কি পুরোনো বিল্ডের চাংক না পাওয়ার কারণে?
+ *
+ * ব্রাউজারভেদে বার্তা আলাদা — Chrome বলে "Failed to fetch dynamically
+ * imported module", Firefox বলে "error loading dynamically imported
+ * module", Safari বলে "Importing a module script failed"।
+ */
+function isStaleChunkError(error) {
+  const text = `${error?.name ?? ""} ${error?.message ?? ""}`.toLowerCase();
+  return (
+    text.includes("dynamically imported module") ||
+    text.includes("importing a module script failed") ||
+    text.includes("failed to fetch dynamically")
+  );
+}
+
 /**
  * রেন্ডারের সময় কোনো কম্পোনেন্ট এরর দিলে পুরো অ্যাপ সাদা স্ক্রিন হয়ে যায় —
  * ব্যবহারকারী বুঝতেই পারেন না কী হলো। এই বাউন্ডারি সেটা ধরে একটা
@@ -25,6 +68,13 @@ export class ErrorBoundary extends Component {
   componentDidCatch(error, info) {
     // লাইভে এখানে Sentry বা অন্য কোনো সার্ভিসে পাঠানো হবে
     console.error("ধরা পড়া এরর:", error, info?.componentStack);
+
+    // নতুন বিল্ড দেওয়ার পর খোলা থাকা ট্যাব পুরোনো নামের চাংক খোঁজে,
+    // সেটা আর সার্ভারে নেই — তখন এই এররটা আসে। ব্যবহারকারীর দোষ নেই,
+    // আর একবার রিলোড করলেই ঠিক হয়ে যায়। তাই নিজে থেকেই করে দেওয়া হয়।
+    if (isStaleChunkError(error) && shouldReload()) {
+      window.location.reload();
+    }
   }
 
   render() {

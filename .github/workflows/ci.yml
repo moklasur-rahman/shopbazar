@@ -90,6 +90,10 @@ jobs:
     name: React (lint + test + build)
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: frontend
+
     steps:
       - uses: actions/checkout@v4
 
@@ -97,6 +101,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
 
@@ -136,7 +141,7 @@ jobs:
       - name: ফ্রন্টএন্ড ইমেজ
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./frontend
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max

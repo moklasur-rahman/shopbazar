@@ -16,7 +16,18 @@ export const SITE = {
   email: "help@shopbazar.com.bd",
 };
 
-/** ব্যবসার নিয়মগুলো — Django-তেও ঠিক এই মানগুলোই সেটিংসে রাখবেন */
+/**
+ * ব্যবসার নিয়ম।
+ *
+ * ⚠️ এই মানগুলো তিন জায়গায় আছে — একটা বদলালে তিনটাই বদলাতে হবে:
+ *      shared/business-rules.json          ← আসল সত্য
+ *      frontend/src/config.js              ← এই ফাইল
+ *      backend/config/settings.py          ← MARKETPLACE
+ *
+ * তিনটা আলাদা হয়ে গেলে ক্রেতা কার্টে এক টাকা দেখবেন, চেকআউটে আরেক।
+ * তাই `business-rules.test.js` আর `test_business_rules.py` মিলিয়ে দেখে —
+ * ভুলে গেলে CI লাল হবে, লাইভে যাবে না।
+ */
 export const RULES = {
   /** প্ল্যাটফর্মের ডিফল্ট কমিশন (%) — ভেন্ডর-ভিত্তিক ওভাররাইড হতে পারে */
   defaultCommissionRate: 8,

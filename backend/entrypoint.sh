@@ -6,11 +6,42 @@
 # DEBUG=False-এ admin/Swagger-এর CSS আসে না।
 set -e
 
-echo "-> migrate"
+echo "==> migrate"
 python manage.py migrate --noinput
 
-echo "-> collectstatic"
-python manage.py collectstatic --noinput --clear
+echo "==> collectstatic"
+python manage.py collectstatic --noinput --clear >/dev/null
 
-echo "-> starting server"
+# --------------------------------------------------------------- superuser
+# পাসওয়ার্ড .env.docker থেকে আসে — এখানে কোনো ডিফল্ট পাসওয়ার্ড রাখা হয়নি
+# ইচ্ছে করেই। ডিফল্ট থাকলে অনেকে সেটা বদলাতে ভুলে যান, আর লাইভ সাইটে
+# পরিচিত পাসওয়ার্ডের অ্যাডমিন থাকার চেয়ে বড় ঝুঁকি কম আছে।
+if [ -n "$DJANGO_SUPERUSER_PASSWORD" ] && [ -n "$DJANGO_SUPERUSER_PHONE" ]; then
+  echo "==> superuser ($DJANGO_SUPERUSER_PHONE)"
+  # আগে থেকে থাকলে Django নিজেই "already exists" বলে থামে — সেটা সমস্যা নয়
+  python manage.py createsuperuser --noinput 2>/dev/null \
+    && echo "    তৈরি হয়েছে" \
+    || echo "    আগে থেকেই আছে, কিছু করা হয়নি"
+fi
+
+# ------------------------------------------------------------------- seed
+# একদম খালি ডেটাবেসে ডেমো পণ্য বসানো। এটা না থাকলে প্রথমবার
+# `docker compose up` করে ফাঁকা সাইট দেখে মনে হতো কিছু ভেঙে গেছে।
+#
+# শর্তটা "খালি হলে তবেই" — তাই দ্বিতীয়বার চালু করলে আপনার আসল ডেটার
+# উপর ডেমো ডেটা বসে যাবে না।
+if [ "$SEED_ON_EMPTY" = "true" ]; then
+  if python manage.py shell -c "
+from apps.catalog.models import Product
+import sys
+sys.exit(0 if Product.objects.exists() else 1)
+" 2>/dev/null; then
+    echo "==> seed: ডেটা আছে, বাদ দেওয়া হলো"
+  else
+    echo "==> seed: ডেটাবেস খালি, ডেমো ডেটা বসানো হচ্ছে"
+    python manage.py seed
+  fi
+fi
+
+echo "==> gunicorn"
 exec "$@"

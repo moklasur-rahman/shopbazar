@@ -24,7 +24,7 @@ VITE_API_URL=http://127.0.0.1:8000/api/v1
 দুই দিকের ফাংশনের **নাম এক, প্যারামিটার এক, রিটার্নের আকার এক**। তাই সুইচ করলে
 কম্পোনেন্ট টেরই পায় না।
 
-`src/api/index.js` দেখুন — মাত্র ২০ লাইন।
+`frontend/src/api/index.js` দেখুন — মাত্র ২০ লাইন।
 
 ---
 
@@ -86,7 +86,7 @@ REST_FRAMEWORK = {
 
 ## ৩. এন্ডপয়েন্ট তালিকা
 
-`src/api/endpoints.js` ফাইলটাই আপনার চেকলিস্ট। নিচে প্রতিটার প্রত্যাশিত JSON।
+`frontend/src/api/endpoints.js` ফাইলটাই আপনার চেকলিস্ট। নিচে প্রতিটার প্রত্যাশিত JSON।
 
 ### ৩.১ Auth
 
@@ -258,7 +258,7 @@ POST /orders/vendor-orders/<id>/cancel/
 
 `status` এর মান শুধু এই সাতটার একটা হতে হবে:
 `pending` · `confirmed` · `packed` · `shipped` · `delivered` · `cancelled` · `returned`
-(দেখুন `src/lib/bd.js` → `ORDER_STATUS`)
+(দেখুন `frontend/src/lib/bd.js` → `ORDER_STATUS`)
 
 ### ৩.৫ ভেন্ডর প্যানেল
 
@@ -289,7 +289,7 @@ GET   /vendor/payouts/           POST /vendor/payouts/  { amount }
 
 ### ৪.১ অর্ডার ভাগ করা + স্টক লক
 
-`src/lib/pricing.js` এর `calculateCart()` এর Django রূপ:
+`frontend/src/lib/pricing.js` এর `calculateCart()` এর Django রূপ:
 
 ```python
 from collections import defaultdict
@@ -390,7 +390,7 @@ Django বানানোর পর `VITE_USE_MOCK=false` করে এই ধ�
 
 ## ৬. ফিল্ডের নাম বদলাতে চাইলে
 
-ব্যাকএন্ডে অন্য নাম ব্যবহার করলে **শুধু `src/api/adapters.js`** ঠিক করুন।
+ব্যাকএন্ডে অন্য নাম ব্যবহার করলে **শুধু `frontend/src/api/adapters.js`** ঠিক করুন।
 কম্পোনেন্টগুলো ওই ফাইলের বের করা নামগুলোই চেনে, তাই বাকি কোথাও হাত দিতে হবে না।
 
 ```js

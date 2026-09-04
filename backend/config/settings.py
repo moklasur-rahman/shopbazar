@@ -337,6 +337,13 @@ LOGGING = {
 
 # --------------------------------------------------- ব্যবসার নিয়ম
 
+# ⚠️ এই মানগুলো তিন জায়গায় আছে — একটা বদলালে তিনটাই বদলাতে হবে:
+#      shared/business-rules.json      ← আসল সত্য
+#      backend/config/settings.py      ← এই ব্লক
+#      frontend/src/config.js          ← RULES
+#
+# tests/test_business_rules.py আর frontend-এর business-rules.test.js
+# মিলিয়ে দেখে — ভুলে গেলে CI লাল হবে।
 MARKETPLACE = {
     # প্ল্যাটফর্মের ডিফল্ট কমিশন (%) — ভেন্ডরে ওভাররাইড হতে পারে
     "DEFAULT_COMMISSION_RATE": Decimal("8"),

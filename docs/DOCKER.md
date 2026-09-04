@@ -47,21 +47,50 @@ docker compose up --build
 
 তারপর **http://localhost:8080**
 
-### অ্যাডমিন অ্যাকাউন্ট
+### প্রথমবার চালু হলে যা নিজে থেকেই হয়
 
-কনটেইনার চালু থাকা অবস্থায় আরেকটা টার্মিনালে:
+কনটেইনার চালু হওয়ার সময় `backend/entrypoint.sh` ধাপে ধাপে করে:
+
+| ধাপ | কখন হয় |
+|---|---|
+| `migrate` | সবসময় |
+| `collectstatic` | সবসময় (নাহলে admin/Swagger-এর CSS আসে না) |
+| অ্যাডমিন অ্যাকাউন্ট | `DJANGO_SUPERUSER_PASSWORD` দেওয়া থাকলে, আর আগে না থাকলে |
+| ডেমো ডেটা (`seed`) | `SEED_ON_EMPTY=true` **এবং** ডেটাবেস একদম খালি হলে |
+
+তাই প্রথমবারই ৪১টা পণ্য, ৮টা দোকান আর একটা কাজের অ্যাডমিন অ্যাকাউন্ট
+নিয়ে সাইটটা চালু হয় — ফাঁকা পাতা দেখে "কিছু ভেঙে গেল নাকি" ভাবতে হয় না।
+
+দ্বিতীয়বার থেকে seed আর চলে না, তাই আপনার আসল ডেটার উপর ডেমো ডেটা
+কখনো বসবে না।
+
+লগে দেখতে পাবেন:
+
+```
+backend-1  | ==> migrate
+backend-1  | ==> collectstatic
+backend-1  | ==> superuser (01700000000)
+backend-1  | ==> seed: ডেটাবেস খালি, ডেমো ডেটা বসানো হচ্ছে
+backend-1  | ==> gunicorn
+```
+
+### অ্যাডমিন হিসেবে ঢোকা
+
+`.env.docker`-এ যে নম্বর ও পাসওয়ার্ড দিয়েছেন সেটাই:
+
+- React অ্যাডমিন প্যানেল → http://localhost:8080/admin
+- Django admin → http://localhost:8080/django-admin/
+
+পাসওয়ার্ড বদলাতে বা ভুলে গেলে:
+
+```bash
+docker compose exec backend python manage.py changepassword 01700000000
+```
+
+`.env.docker`-এ পাসওয়ার্ড না দিলে অ্যাডমিন তৈরি হয় না; তখন নিজে বানান:
 
 ```bash
 docker compose exec backend python manage.py createsuperuser
-```
-
-তারপর `http://localhost:8080/django-admin/` — অথবা React-এর নিজের
-অ্যাডমিন প্যানেল `http://localhost:8080/admin`।
-
-### ডেমো ডেটা
-
-```bash
-docker compose exec backend python manage.py seed
 ```
 
 ---
@@ -106,10 +135,38 @@ Secure কুকি) চালু থাকা উচিত। কিন্ত�
 `media` নামের একটা শেয়ার্ড ভলিউমে থাকে — `backend` লেখে, `nginx`
 read-only হিসেবে পড়ে। `docker compose down -v` দিলে এগুলোও মুছে যায়।
 
-**ডেটাবেসের ব্যাকআপ**
+---
+
+## ব্যাকআপ ও ফিরিয়ে আনা
+
+ডেটাবেস আর আপলোড করা ছবি — দুইটাই লাগবে। ছবি ছাড়া ডেটাবেস ফেরালে
+পণ্যের ছবি আর NID-র ছবি সব হারিয়ে যাবে।
+
+**ব্যাকআপ নেওয়া**
 
 ```bash
-docker compose exec db pg_dump -U shopbazar shopbazar > backup.sql
+docker compose exec -T backend python manage.py dumpdata   --exclude contenttypes --exclude auth.permission   --exclude sessions.session --exclude admin.logentry   --indent 2 > backup.json
+
+docker compose exec -T backend tar cf - -C /app media > media.tar
+```
+
+> ⚠️ `backup.json`-এ পাসওয়ার্ডের হ্যাশ আর NID-র তথ্য থাকে। এটা কখনো
+> গিটে কমিট করবেন না — `.gitignore`-এ `dump*.json` নিয়মটা সেজন্যই আছে।
+
+**ফিরিয়ে আনা**
+
+```bash
+docker compose exec -T backend python manage.py flush --noinput
+docker compose exec -T backend python manage.py loaddata --format=json - < backup.json
+docker compose exec -T backend tar xf - -C /app < media.tar
+```
+
+`flush` পুরোনো সব মুছে দেয়, তাই ফেরানোর পর ঠিক ব্যাকআপের অবস্থাটাই থাকে।
+
+**কাঁচা SQL ডাম্প চাইলে** (অন্য PostgreSQL সার্ভারে নিতে):
+
+```bash
+docker compose exec -T db pg_dump -U shopbazar shopbazar > backup.sql
 ```
 
 ---

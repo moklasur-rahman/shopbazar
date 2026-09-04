@@ -36,10 +36,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    watch: {
-      // backend/ ফোল্ডারে Python-এর হাজার হাজার ফাইল আছে (.venv, db, media)।
-      // এগুলো ওয়াচ করলে HMR স্লো হয় আর অকারণে পেজ রিলোড হতে থাকে।
-      ignored: ["**/backend/**"],
+    fs: {
+      // shared/business-rules.json ফ্রন্টএন্ড ফোল্ডারের বাইরে — টেস্ট
+      // ওটা পড়ে দেখে যে দুই দিকের নিয়ম এক আছে কি না
+      allow: [".."],
     },
     // Django dev server চালু করার পর VITE_USE_MOCK=false করলে এই প্রক্সিও ব্যবহার করতে
     // পারেন — তখন VITE_API_URL=/api/v1 দিলে CORS নিয়ে ভাবতে হবে না।

@@ -50,10 +50,19 @@ services:
         condition: service_healthy
     expose:
       - "8000"
+    healthcheck:
+      # ইমেজে curl/wget নেই, তাই Python দিয়েই দেখা হয়। প্রথমবার
+      # migrate + seed-এ সময় লাগে বলে start_period ৯০ সেকেন্ড —
+      # তার আগে ব্যর্থ হলেও "unhealthy" গোনা হয় না।
+      test: ["CMD-SHELL", "python -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/v1/catalog/banners/', timeout=5)\""]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+      start_period: 90s
 
   web:
     build:
-      context: .
+      context: ./frontend
       args:
         # বিল্ডের সময় বসে যায় — বদলালে `--build` দিয়ে আবার বানাতে হবে
         VITE_USE_MOCK: "false"
@@ -66,7 +75,10 @@ services:
       # ব্যাকএন্ডের সাথে একই ভলিউম — nginx সরাসরি ছবি দেয়, read-only
       - media:/var/www/media:ro
     depends_on:
-      - backend
+      backend:
+        # ব্যাকএন্ড উত্তর দেওয়া শুরু করার আগেই nginx চালু হলে প্রথম
+        # কয়েকটা রিকোয়েস্ট ৫০২ পেত
+        condition: service_healthy
 
 volumes:
   pgdata:
