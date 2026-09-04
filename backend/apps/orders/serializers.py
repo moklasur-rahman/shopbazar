@@ -92,6 +92,13 @@ class OrderCreateSerializer(serializers.Serializer):
     )
     coupon_code = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
+    #: `Idempotency-Key` হেডারে পাঠানোই স্বাভাবিক (HTTP-র প্রচলিত নিয়ম);
+    #: হেডার বসাতে না পারা ক্লায়েন্টের জন্য বডিতেও নেওয়া হয়।
+    idempotency_key = serializers.CharField(
+        required=False, allow_blank=True, max_length=64, default="",
+        help_text="একই চেকআউটের প্রতিটি চেষ্টায় একই মান — দুইবার অর্ডার হওয়া ঠেকায়।",
+    )
+
 
 class StatusUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=VendorOrder.Status.choices)

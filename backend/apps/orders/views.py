@@ -1,5 +1,7 @@
 from django.db.models import Prefetch
-from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from drf_spectacular.utils import (
+    OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer,
+)
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -113,10 +115,29 @@ class OrderViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
         serializer = self.get_serializer(page, many=True)
         return self.get_paginated_response(serializer.data)
 
+    @extend_schema(
+        summary="অর্ডার করা",
+        description=(
+            "`Idempotency-Key` হেডার পাঠানো **জোরালোভাবে সুপারিশ করা হয়** — "
+            "একই কি দিয়ে দ্বিতীয়বার অনুরোধ এলে নতুন অর্ডার না বানিয়ে আগের "
+            "অর্ডারটাই ২০০ স্ট্যাটাসে ফেরত আসে। নতুন অর্ডার হলে ২০১।"
+        ),
+        request=OrderCreateSerializer,
+        parameters=[
+            OpenApiParameter(
+                name="Idempotency-Key", location=OpenApiParameter.HEADER, required=False,
+                type=str, description="প্রতি চেকআউটে একটি এলোমেলো মান (যেমন UUID)।",
+            )
+        ],
+        responses={201: OrderSerializer, 200: OrderSerializer},
+    )
     def create(self, request, *args, **kwargs):
         payload = OrderCreateSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         data = payload.validated_data
+
+        # হেডার আগে — সেটাই প্রচলিত নিয়ম; না থাকলে বডির মান
+        key = (request.headers.get("Idempotency-Key") or data.get("idempotency_key") or "").strip()
 
         order = place_order(
             user=request.user,
@@ -124,11 +145,15 @@ class OrderViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
             address=dict(data["shipping_address"]),
             payment_method=data["payment_method"],
             coupon=find_coupon(data.get("coupon_code")),
+            idempotency_key=key[:64],
         )
 
         return Response(
             OrderSerializer(order, context={"request": request}).data,
-            status=status.HTTP_201_CREATED,
+            status=(
+                status.HTTP_200_OK if getattr(order, "is_replay", False)
+                else status.HTTP_201_CREATED
+            ),
         )
 
 

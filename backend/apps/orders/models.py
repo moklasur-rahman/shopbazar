@@ -58,6 +58,16 @@ class Order(TimeStamped):
         Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders"
     )
 
+    # ক্রেতার ব্রাউজার প্রতিটি চেকআউটের জন্য একটা এলোমেলো কি তৈরি করে পাঠায়।
+    # "অর্ডার করুন" দুইবার চাপলে, বা নেটওয়ার্ক টাইমআউটের পর রিকোয়েস্টটা
+    # আবার গেলে — একই কি আসে, আর নিচের ইউনিক কনস্ট্রেইন্ট দ্বিতীয় অর্ডারটা
+    # তৈরি হতে দেয় না। এটা ছাড়া একই কেনাকাটায় দুইবার স্টক কমত আর
+    # (অনলাইন পেমেন্টে) দুইবার টাকা কাটত।
+    #
+    # খালি স্ট্রিং মানে কি পাঠানো হয়নি (পুরোনো অর্ডার, বা অন্য ক্লায়েন্ট) —
+    # তখন কনস্ট্রেইন্টটা খাটে না, নইলে একজনের দ্বিতীয় অর্ডারই আটকে যেত।
+    idempotency_key = models.CharField(max_length=64, blank=True, default="")
+
     items_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     shipping_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     discount_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
@@ -67,6 +77,13 @@ class Order(TimeStamped):
         verbose_name = "অর্ডার"
         verbose_name_plural = "অর্ডার"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["customer", "idempotency_key"],
+                condition=~models.Q(idempotency_key=""),
+                name="uniq_order_idempotency_per_customer",
+            )
+        ]
 
     def __str__(self):
         return self.order_number

@@ -1,0 +1,44 @@
+{
+  // ব্যাখ্যা:
+  //
+  //   এই প্রজেক্টের সব কোড এখনো .jsx — একবারে সব .tsx বানানো মানে
+  //   ১৮ হাজার লাইনে হাত দেওয়া, আর তাতে নতুন বাগ ঢোকার ঝুঁকি যা লাভ
+  //   হবে তার চেয়ে বেশি। তাই এখানে ভিত্তিটা বসানো হলো:
+  //
+  //     · allowJs   — পুরোনো .jsx ফাইল আগের মতোই চলবে
+  //     · checkJs   — false, অর্থাৎ ওগুলোতে টাইপ চেক হবে না
+  //     · strict    — কিন্তু নতুন যে ফাইলটা .ts/.tsx হবে, তাতে পুরো কড়াকড়ি
+  //
+  //   ফলে আজ থেকে লেখা প্রতিটা নতুন ফাইল টাইপ-নিরাপদ, আর পুরোনো
+  //   ফাইলগুলো একটা একটা করে সময়মতো বদলানো যাবে। কোনো "সব একসাথে"
+  //   দিন লাগবে না।
+  //
+  //   একটা পুরোনো ফাইল বদলাতে: নাম .jsx → .tsx করুন, `npm run typecheck`
+  //   চালান, এররগুলো ঠিক করুন। ইমপোর্টের পথ বদলাতে হয় না।
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    "allowJs": true,
+    "checkJs": false,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+
+    // Vite নিজেই ট্রান্সপাইল করে; tsc শুধু টাইপ দেখে, কোনো ফাইল লেখে না
+    "noEmit": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": ["vite/client", "vitest/globals"]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "backend"]
+}

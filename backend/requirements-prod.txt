@@ -1,0 +1,13 @@
+# কনটেইনারে/লাইভ সার্ভারে যা বাড়তি লাগে।
+#   pip install -r requirements-prod.txt
+# ডেভেলপমেন্টে এটা লাগে না — requirements.txt-ই যথেষ্ট।
+
+-r requirements.txt
+
+# runserver একসাথে একটার বেশি রিকোয়েস্ট ভালোভাবে সামলায় না, আর
+# নিজেই বলে দেয় "do not use this in a production setting"
+gunicorn>=23.0
+
+# PostgreSQL ড্রাইভার। [binary] দিলে libpq সাথেই আসে, আলাদা করে
+# apt install করতে হয় না
+psycopg[binary]>=3.2

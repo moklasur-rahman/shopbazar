@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin, CreditCard, Package, Check, ArrowLeft, Store, Truck } from "lucide-react";
+import { newIdempotencyKey } from "../lib/idempotency";
 import { api } from "../api";
 import { useCart } from "../store/CartContext";
 import { useAuth } from "../store/AuthContext";
@@ -69,6 +70,12 @@ export default function Checkout() {
   const [step, setStep] = useState(1);
   const [placing, setPlacing] = useState(false);
   const [placed, setPlaced] = useState(false);
+
+  // পুরো চেকআউটে একটাই কি — রিট্রাইতেও বদলায় না। এটাই আসল কাজ:
+  // প্রথমবারের অনুরোধ সার্ভারে পৌঁছে গিয়েও উত্তর হারিয়ে গেলে ক্রেতা
+  // আবার চাপবেন, আর তখন একই কি দেখে সার্ভার নতুন অর্ডার বানাবে না।
+  const checkoutKey = useRef("");
+  if (!checkoutKey.current) checkoutKey.current = newIdempotencyKey();
   const [errors, setErrors] = useState({});
 
   const [address, setAddress] = useState({
@@ -133,6 +140,7 @@ export default function Checkout() {
         address,
         paymentMethod: payment,
         couponCode: coupon?.code ?? null,
+        idempotencyKey: checkoutKey.current,
       });
       setPlaced(true);
       clear();

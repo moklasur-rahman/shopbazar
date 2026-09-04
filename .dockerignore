@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.git/
+backend/
+
+# গোপন — বিল্ড ARG দিয়ে VITE_* মান পাঠানো হয়
+.env
+.env.*
+!.env.example
+
+.claude/
+docs/
+*.md

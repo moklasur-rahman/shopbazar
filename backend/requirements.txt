@@ -23,6 +23,10 @@ pytest-cov>=6.0
 # psycopg[binary]>=3.2
 
 # ------------------------------------------------------ প্রোডাকশন
-# লাইভ সার্ভারে runserver নয় — gunicorn ব্যবহার করুন
-# gunicorn>=23.0
-# whitenoise>=6.8
+# DEBUG=False হলে Django static ফাইল দেওয়া বন্ধ করে দেয়। WhiteNoise
+# সেটা সামলায় — তাই এটা ডেভেলপমেন্টেও ইনস্টল থাকা দরকার, নইলে
+# settings.py-র MIDDLEWARE লাইনটা ImportError দেবে।
+whitenoise>=6.8
+
+# gunicorn আর psycopg শুধু কনটেইনারে লাগে — requirements-prod.txt দেখুন।
+# (gunicorn উইন্ডোজে চলে না, তাই এখানে রাখা হয়নি)

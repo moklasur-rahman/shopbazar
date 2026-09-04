@@ -62,6 +62,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  # সবার উপরে থাকতে হবে
     "django.middleware.security.SecurityMiddleware",
+    # DEBUG=False হলে Django নিজে static ফাইল দেয় না। WhiteNoise সেটা করে,
+    # তাই admin আর Swagger UI-র CSS/JS আলাদা ওয়েব সার্ভার ছাড়াই কাজ করে।
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -102,12 +105,17 @@ if env("DB_ENGINE", "django.db.backends.sqlite3").endswith("sqlite3"):
         }
     }
 else:
+    # Docker-এর postgres ইমেজ ডেটাবেস বানানোর সময় POSTGRES_* নাম খোঁজে,
+    # আর Django এখানে DB_* খোঁজে। একই পাসওয়ার্ড দুই নামে দুই জায়গায়
+    # লিখলে একদিন একটা বদলে অন্যটা বদলাতে ভুলে যাওয়া নিশ্চিত — তখন
+    # "password authentication failed" এসে ব্যাকএন্ড চালুই হয় না।
+    # তাই দুই নামই এখানে মানা হয়, DB_* আগে।
     DATABASES = {
         "default": {
             "ENGINE": env("DB_ENGINE"),
-            "NAME": env("DB_NAME", "shopbazar"),
-            "USER": env("DB_USER", "postgres"),
-            "PASSWORD": env("DB_PASSWORD", ""),
+            "NAME": env("DB_NAME") or env("POSTGRES_DB", "shopbazar"),
+            "USER": env("DB_USER") or env("POSTGRES_USER", "postgres"),
+            "PASSWORD": env("DB_PASSWORD") or env("POSTGRES_PASSWORD", ""),
             "HOST": env("DB_HOST", "127.0.0.1"),
             "PORT": env("DB_PORT", "5432"),
         }
@@ -139,6 +147,18 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise চালু হওয়ার সময় ফোল্ডারটা না পেলে প্রতিবার সতর্কবার্তা দেয়।
+# collectstatic এখনো চালানো হয়নি এমন নতুন মেশিনে এটা স্বাভাবিক, তাই
+# ফোল্ডারটা আগেই বানিয়ে রাখা হয় (LOG_DIR-এর মতোই)।
+STATIC_ROOT.mkdir(exist_ok=True)
+
+# ফাইলের নামে হ্যাশ বসিয়ে চিরকালের জন্য ক্যাশ করা যায়, আর gzip/brotli
+# সংস্করণও আগেই বানিয়ে রাখে
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
@@ -223,10 +243,16 @@ SIMPLE_JWT = {
 
 # ---------------------------------------------------------------- CORS
 
+from corsheaders.defaults import default_headers as cors_default_headers  # noqa: E402
+
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
 )
 CORS_ALLOW_CREDENTIALS = True
+
+# ব্রাউজার প্রি-ফ্লাইটে কাস্টম হেডার আলাদা করে অনুমতি চায় — এটা না দিলে
+# চেকআউটের Idempotency-Key হেডারটা CORS-এ আটকে যেত।
+CORS_ALLOW_HEADERS = (*cors_default_headers, "idempotency-key")
 
 # ------------------------------------------------------------- নিরাপত্তা
 
@@ -240,19 +266,26 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
 if not DEBUG:
-    # HTTP এলে HTTPS-এ পাঠাও
-    SECURE_SSL_REDIRECT = True
+    # HTTPS এখনো বসেনি এমন জায়গায় (যেমন Docker দিয়ে লোকালে
+    # http://localhost:8080) এটা চালু থাকলে প্রতিটি রিকোয়েস্ট https-এ
+    # রিডাইরেক্ট হয়ে সাইটটাই খুলত না। তাই এনভায়রনমেন্ট থেকে বন্ধ করার
+    # সুযোগ রাখা হলো — ডিফল্ট চালুই, আসল সার্ভারে যেন ভুলে বন্ধ না থাকে।
+    HTTPS_READY = env_bool("DJANGO_HTTPS", True)
+
+    SECURE_SSL_REDIRECT = HTTPS_READY
 
     # ব্রাউজারকে বলে রাখা: এই ডোমেইনে এক বছর শুধু HTTPS-ই ব্যবহার করবে।
     # ⚠️ একবার চালু করলে ফেরত আসা কঠিন — ডোমেইনে SSL ঠিকমতো বসার পরেই দিন।
-    SECURE_HSTS_SECONDS = 31536000  # ১ বছর
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
+    SECURE_HSTS_SECONDS = 31536000 if HTTPS_READY else 0  # ১ বছর
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = HTTPS_READY
+    SECURE_HSTS_PRELOAD = HTTPS_READY
 
-    # কুকি শুধু HTTPS-এ যাবে, আর JavaScript পড়তে পারবে না
-    SESSION_COOKIE_SECURE = True
+    # কুকি শুধু HTTPS-এ যাবে, আর JavaScript পড়তে পারবে না।
+    # HTTPS না থাকলে Secure কুকি ব্রাউজার একেবারেই জমা রাখে না — তখন
+    # Django admin-এ লগইনই করা যেত না।
+    SESSION_COOKIE_SECURE = HTTPS_READY
     SESSION_COOKIE_HTTPONLY = True
-    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = HTTPS_READY
     CSRF_COOKIE_HTTPONLY = True
 
     # nginx/লোড ব্যালান্সারের পেছনে থাকলে Django যেন বোঝে আসল রিকোয়েস্ট HTTPS

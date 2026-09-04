@@ -1,0 +1,73 @@
+# পুরো সাইট এক কমান্ডে:
+#
+#     cp .env.docker.example .env.docker     (Windows: copy)
+#     docker compose up --build
+#
+# তারপর  http://localhost:8080
+#
+# তিনটা কনটেইনার:
+#   db      — PostgreSQL (লোকাল SQLite নয়, লাইভের মতোই)
+#   backend — Django + Gunicorn
+#   web     — React বিল্ড, nginx দিয়ে; সেই সাথে API-র প্রক্সি
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    # backend-ও এই ফাইলটাই পড়ে, তাই ইউজার/পাসওয়ার্ড এক জায়গাতেই লেখা।
+    # আলাদা করে লিখলে একটা বদলে অন্যটা বদলাতে ভুলে যাওয়া নিশ্চিত।
+    env_file:
+      - .env.docker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # ডেটাবেস তৈরি হতে কয়েক সেকেন্ড লাগে। এটা না থাকলে backend আগে
+      # চালু হয়ে migrate-এ "connection refused" খেয়ে মরে যেত।
+      #
+      # $$ (দুইটা ডলার) — compose যেন নিজে মান বসিয়ে না দেয়, কনটেইনারের
+      # ভেতরের shell যেন বসায়। একটা ডলার দিলে compose হোস্টের
+      # এনভায়রনমেন্টে খুঁজত, পেত না, আর খালি নাম দিয়ে চেক করত।
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: db
+      DB_PORT: "5432"
+    volumes:
+      # আপলোড করা ছবি কনটেইনার মুছে গেলেও থাকতে হবে
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+
+  web:
+    build:
+      context: .
+      args:
+        # বিল্ডের সময় বসে যায় — বদলালে `--build` দিয়ে আবার বানাতে হবে
+        VITE_USE_MOCK: "false"
+        VITE_API_URL: /api/v1
+        VITE_MEDIA_URL: ""
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      # ব্যাকএন্ডের সাথে একই ভলিউম — nginx সরাসরি ছবি দেয়, read-only
+      - media:/var/www/media:ro
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  media:

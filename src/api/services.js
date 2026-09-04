@@ -153,6 +153,12 @@ export const ordersApi = {
       },
       payment_method: payload.paymentMethod,
       coupon_code: payload.couponCode || null,
+    }, {
+      // একই চেকআউটের প্রতিটি চেষ্টায় একই কি — সার্ভার এটা দেখে দ্বিতীয়বার
+      // নতুন অর্ডার না বানিয়ে আগেরটাই ফেরত দেয় (backend: Order.idempotency_key)
+      headers: payload.idempotencyKey
+        ? { "Idempotency-Key": payload.idempotencyKey }
+        : {},
     });
     return toOrder(raw);
   },

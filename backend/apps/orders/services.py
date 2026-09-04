@@ -13,7 +13,7 @@ from collections import OrderedDict
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -235,11 +235,49 @@ def first_image_url(product):
     return (image.display_url or "") if image else ""
 
 
-@transaction.atomic
-def place_order(user, items, address, payment_method="cod", coupon=None):
+def find_replay(user, idempotency_key):
+    """এই কি দিয়ে আগেই অর্ডার হয়ে গেছে কি না।"""
+    if not idempotency_key:
+        return None
+    return Order.objects.filter(customer=user, idempotency_key=idempotency_key).first()
+
+
+def place_order(user, items, address, payment_method="cod", coupon=None, idempotency_key=""):
     """
     অর্ডার তৈরির একমাত্র পথ।
 
+    ⚠️ এটা নিজে ট্রানজেকশন নয় — আসল কাজটা `_create_order()` করে। এই স্তরটা
+    আলাদা রাখার একটাই কারণ: একই কি দিয়ে দুইবার অনুরোধ এলে দ্বিতীয়বার
+    IntegrityError ওঠে, আর ট্রানজেকশনের **ভেতরে** IntegrityError ধরে ফেললে
+    Django ওই ট্রানজেকশনকে ভাঙা ধরে নেয় — পরের কোয়েরিতেই
+    TransactionManagementError। তাই ধরাটা বাইরে করতে হয়।
+
+    ফেরত অবজেক্টে `is_replay` বসে — ভিউ সেটা দেখে ২০১-এর বদলে ২০০ দেয়।
+    """
+    existing = find_replay(user, idempotency_key)
+    if existing is not None:
+        existing.is_replay = True
+        return existing
+
+    try:
+        order = _create_order(user, items, address, payment_method, coupon, idempotency_key)
+    except IntegrityError:
+        # দুইটা অনুরোধ প্রায় একসাথে এসেছিল — উপরের চেক দুটোই পাস করেছিল,
+        # কিন্তু ডেটাবেসের কনস্ট্রেইন্ট একটাকে আটকে দিয়েছে। যেটা টিকেছে
+        # সেটাই ফেরত দিই; ক্রেতার কাছে অর্ডারটা সফলই মনে হবে।
+        existing = find_replay(user, idempotency_key)
+        if existing is None:
+            raise
+        existing.is_replay = True
+        return existing
+
+    order.is_replay = False
+    return order
+
+
+@transaction.atomic
+def _create_order(user, items, address, payment_method, coupon, idempotency_key):
+    """
     পুরোটা একটাই ট্রানজেকশনে — মাঝপথে স্টক শেষ হলে সব রোলব্যাক হয়ে যায়,
     অর্ধেক তৈরি অর্ডার ডেটাবেসে পড়ে থাকে না।
     """
@@ -254,6 +292,7 @@ def place_order(user, items, address, payment_method="cod", coupon=None):
             Order.PaymentStatus.PENDING if payment_method == "cod" else Order.PaymentStatus.PAID
         ),
         coupon=coupon,
+        idempotency_key=idempotency_key,
     )
 
     for index, group in enumerate(summary["groups"]):

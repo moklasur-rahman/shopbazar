@@ -210,3 +210,80 @@ class TestDerivedStatus:
         first.save()
 
         assert order.derived_status == VendorOrder.Status.SHIPPED
+
+
+class TestIdempotency:
+    """
+    একই "অর্ডার করুন" ক্লিক দুইবার গেলে যেন দুইটা অর্ডার না হয়।
+
+    বাস্তবে এটা হয় সবচেয়ে বেশি: মোবাইল ইন্টারনেটে বাটন চেপে কিছু না
+    দেখে ক্রেতা আবার চাপেন। কি না থাকলে দুইবার স্টক কমত, দুইবার
+    কমিশন বসত, আর অনলাইন পেমেন্টে দুইবার টাকা কাটত।
+    """
+
+    def test_ek_key_e_ekbar_i_order(self, customer, phone_product, address):
+        first = place_order(
+            customer, items_for((phone_product, 1)), address, idempotency_key="abc-123"
+        )
+        second = place_order(
+            customer, items_for((phone_product, 1)), address, idempotency_key="abc-123"
+        )
+
+        assert first.pk == second.pk
+        assert second.is_replay is True
+        assert Order.objects.filter(customer=customer).count() == 1
+
+    def test_replay_e_stock_ar_kome_na(self, customer, phone_product, address):
+        variant = phone_product.variants.first()
+        start = variant.stock
+
+        place_order(customer, items_for((phone_product, 2)), address, idempotency_key="k1")
+        place_order(customer, items_for((phone_product, 2)), address, idempotency_key="k1")
+
+        variant.refresh_from_db()
+        assert variant.stock == start - 2
+
+    def test_alada_key_e_alada_order(self, customer, phone_product, address):
+        place_order(customer, items_for((phone_product, 1)), address, idempotency_key="k1")
+        place_order(customer, items_for((phone_product, 1)), address, idempotency_key="k2")
+
+        assert Order.objects.filter(customer=customer).count() == 2
+
+    def test_key_chhara_dui_order_atkay_na(self, customer, phone_product, address):
+        """পুরোনো ক্লায়েন্ট কি পাঠায় না — তার দ্বিতীয় অর্ডার আটকানো চলবে না।"""
+        place_order(customer, items_for((phone_product, 1)), address)
+        place_order(customer, items_for((phone_product, 1)), address)
+
+        assert Order.objects.filter(customer=customer).count() == 2
+
+    def test_onno_kretar_ekoi_key_alada_order(
+        self, customer, staff, phone_product, address
+    ):
+        """কি শুধু নিজের অর্ডারের মধ্যে ইউনিক — দুজনের কি মিলে গেলে সমস্যা নেই।"""
+        place_order(customer, items_for((phone_product, 1)), address, idempotency_key="same")
+        place_order(staff, items_for((phone_product, 1)), address, idempotency_key="same")
+
+        assert Order.objects.count() == 2
+
+    def test_api_replay_e_201_er_bodole_200(self, customer, phone_product, address):
+        from tests.conftest import auth_client
+
+        client = auth_client(customer)
+        payload = {
+            "items": [{"variant": phone_product.variants.first().id, "quantity": 1}],
+            "shipping_address": {
+                "receiver_name": "রহিম", "phone": "01711111111",
+                "division": "ঢাকা", "district": "ঢাকা", "thana": "মিরপুর",
+                "address_line": "বাড়ি ১২, রোড ৪, মিরপুর ১০",
+            },
+            "payment_method": "cod",
+        }
+        headers = {"HTTP_IDEMPOTENCY_KEY": "checkout-xyz"}
+
+        first = client.post("/api/v1/orders/", payload, format="json", **headers)
+        second = client.post("/api/v1/orders/", payload, format="json", **headers)
+
+        assert first.status_code == 201
+        assert second.status_code == 200
+        assert first.data["order_number"] == second.data["order_number"]
+        assert Order.objects.count() == 1

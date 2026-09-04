@@ -288,7 +288,15 @@ export const ordersApi = {
   async create(payload) {
     await wait(700);
 
-    const { items, address, paymentMethod, couponCode } = payload;
+    const { items, address, paymentMethod, couponCode, idempotencyKey } = payload;
+
+    // আসল ব্যাকএন্ডের মতোই আচরণ: একই কি দিয়ে দ্বিতীয়বার এলে নতুন অর্ডার
+    // না বানিয়ে আগেরটাই ফেরত। মক আর আসল API-র আচরণ আলাদা হলে মক দিয়ে
+    // টেস্ট করে "ঠিক আছে" ভেবে বসে থাকা যেত, অথচ লাইভে দুইবার অর্ডার হতো।
+    if (idempotencyKey) {
+      const already = loadOrders().find((o) => o.idempotencyKey === idempotencyKey);
+      if (already) return already;
+    }
 
     // স্টক যাচাই — আসল ব্যাকএন্ডে এইটা select_for_update() দিয়ে হবে
     for (const item of items) {
@@ -313,6 +321,7 @@ export const ordersApi = {
 
     const order = {
       number,
+      idempotencyKey: idempotencyKey ?? null,
       createdAt: new Date().toISOString(),
       paymentMethod,
       paymentStatus: paymentMethod === "cod" ? "pending" : "paid",

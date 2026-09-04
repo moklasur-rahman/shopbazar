@@ -218,6 +218,43 @@ locked.stock -= quantity
 এটা ছাড়া শেষ ১টা পণ্যে দুইজন একসাথে অর্ডার করলে দুজনেরই সফল হয়ে স্টক
 ঋণাত্মক হয়ে যাবে। পুরো `place_order()` একটাই `transaction.atomic`-এ।
 
+### ৫.৪ একই অর্ডার দুইবার নয় (idempotency)
+
+মোবাইল ইন্টারনেটে "অর্ডার করুন" চেপে কিছু না দেখে ক্রেতা আবার চাপেন —
+এটা সবচেয়ে বেশি ঘটা ঘটনা। কিছু না থাকলে দুইবার স্টক কমত, দুইবার কমিশন
+বসত, আর অনলাইন পেমেন্টে দুইবার টাকা কাটত।
+
+ফ্রন্টএন্ড প্রতিটি চেকআউটের জন্য একটা এলোমেলো কি বানায় (`Checkout.jsx`
+→ `checkoutKey`) আর প্রতিবার **একই** কি `Idempotency-Key` হেডারে পাঠায়:
+
+```
+POST /api/v1/orders/
+Idempotency-Key: 8f3a1c2e-…
+```
+
+সার্ভারে `Order.idempotency_key` কলাম, আর তার উপরে একটা শর্তযুক্ত
+ইউনিক কনস্ট্রেইন্ট:
+
+```python
+models.UniqueConstraint(
+    fields=["customer", "idempotency_key"],
+    condition=~models.Q(idempotency_key=""),   # খালি হলে খাটে না
+    name="uniq_order_idempotency_per_customer",
+)
+```
+
+| অবস্থা | উত্তর |
+|---|---|
+| নতুন কি | নতুন অর্ডার, **২০১** |
+| একই কি আবার | **আগের অর্ডারটাই**, **২০০** |
+| কি পাঠানো হয়নি | সবসময় নতুন অর্ডার (পুরোনো ক্লায়েন্ট আটকানো যাবে না) |
+
+দুইটা অনুরোধ একসাথে এলে অ্যাপ্লিকেশনের চেক দুটোই পাস করতে পারে —
+তখন ডেটাবেসের কনস্ট্রেইন্টই শেষ রক্ষা। সেই `IntegrityError` ধরা হয়
+`transaction.atomic`-এর **বাইরে** (`place_order()`), কারণ ভেতরে ধরলে
+Django ট্রানজেকশনটাকে ভাঙা ধরে নেয় আর পরের কোয়েরিতেই
+`TransactionManagementError` দেয়।
+
 ---
 
 ## ৬. নিরাপত্তার একটাই নিয়ম
@@ -258,8 +295,12 @@ def get_queryset(self):
 
 ## ৮. PostgreSQL-এ যাওয়া
 
+সবচেয়ে সহজ পথ — Docker, তাতে Postgres নিজে বসাতেই হয় না:
+[`docs/DOCKER.md`](../docs/DOCKER.md) দেখুন।
+
+নিজের মেশিনে বসাতে চাইলে:
+
 ```bash
-# requirements.txt এ psycopg লাইনটা চালু করে
 .venv\Scripts\python.exe -m pip install "psycopg[binary]"
 ```
 
@@ -294,11 +335,38 @@ DB_PORT=5432
 
 ---
 
-## ১০. লাইভে যাওয়ার আগে
+## ১০. Docker ও CI
+
+উপরের অনেকগুলো ধাপ (PostgreSQL, gunicorn, collectstatic, nginx) Docker
+নিজেই করে দেয় — [`docs/DOCKER.md`](../docs/DOCKER.md):
+
+```bash
+docker compose up --build      # → http://localhost:8080
+```
+
+`.github/workflows/ci.yml` প্রতিটি push আর PR-এ চালায়:
+
+| জব | কী চলে |
+|---|---|
+| backend | `makemigrations --check` · `pytest` (PostgreSQL-এ) · `check --deploy` |
+| frontend | `lint` · `test` · `typecheck` · `build` |
+| docker | দুইটা ইমেজ আদৌ বানানো যায় কি না |
+
+`makemigrations --check` ধাপটা বিশেষভাবে দরকারি — মডেল বদলে মাইগ্রেশন
+বানাতে ভুলে গেলে এখানেই ধরা পড়ে। নাহলে ডিপ্লয়ের সময়
+"column does not exist" এসে সাইট বসে যেত।
+
+টেস্টগুলো CI-তে **PostgreSQL**-এ চলে, SQLite-এ নয় — লাইভে যেটা চলবে
+সেখানেই যাচাই হওয়া উচিত।
+
+---
+
+## ১১. লাইভে যাওয়ার আগে
 
 - [ ] `DJANGO_SECRET_KEY` বদলান, `DJANGO_DEBUG=False` করুন
 - [ ] `DJANGO_ALLOWED_HOSTS` ও `CORS_ALLOWED_ORIGINS`-এ আসল ডোমেইন দিন
 - [ ] PostgreSQL-এ যান
+- [ ] SSL বসার পর `DJANGO_HTTPS=True` — তার আগে নয়, নইলে সাইট খুলবে না
 - [ ] `python manage.py collectstatic`, nginx দিয়ে `static/` ও `media/` সার্ভ করুন
 - [ ] gunicorn/uvicorn দিয়ে চালান, `runserver` নয়
 - [ ] `media/` ফোল্ডার আর ডেটাবেস একসাথে ব্যাকআপ নিন — NID ছবিগুলো ওখানেই

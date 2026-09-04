@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# গোপন — কনটেইনারে এনভায়রনমেন্ট ভেরিয়েবল দিয়ে যায়
+.env
+.env.*
+!.env.example
+
+# লোকাল ডেটা — কনটেইনারে Postgres আর ভলিউম ব্যবহার হয়
+db.sqlite3
+media/
+staticfiles/
+logs/

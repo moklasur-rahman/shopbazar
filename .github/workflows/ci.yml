@@ -1,0 +1,142 @@
+# প্রতিটি push আর pull request-এ যা যাচাই হয়।
+#
+# ব্যাকএন্ড আর ফ্রন্টএন্ড আলাদা জব — একটা ভাঙলেও অন্যটার ফল দেখা যায়,
+# আর দুটো সমান্তরালে চলে বলে মোট সময় কম।
+
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+# একই ব্রাঞ্চে পরপর push দিলে আগের রানটা বাতিল হয়ে যাবে —
+# পুরোনো কোডের ফল দেখে বিভ্রান্ত হওয়ার দরকার নেই
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------------------------------ ব্যাকএন্ড
+  backend:
+    name: Django (pytest + deploy check)
+    runs-on: ubuntu-latest
+
+    services:
+      # লোকালে SQLite চলে, কিন্তু লাইভে PostgreSQL — টেস্টও সেখানেই
+      # চালানো হয়, নইলে শুধু Postgres-এ ধরা পড়া বাগ CI মিস করত
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: shopbazar_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      # ৫০+ অক্ষর — কম হলে check --deploy W009 ওয়ার্নিং দেয়। এটা শুধু
+      # CI-র জন্য, কোনো আসল সার্ভারে এই কি ব্যবহার হয় না।
+      DJANGO_SECRET_KEY: ci-only-not-a-real-key-3f8b21ce7a94d05e6b1f2c8a4d97e30b
+      DJANGO_DEBUG: "True"
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: shopbazar_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: প্যাকেজ ইনস্টল
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-prod.txt
+
+      - name: মাইগ্রেশন বাকি আছে কি না
+        # মডেল বদলে makemigrations চালাতে ভুলে গেলে এখানেই ধরা পড়ে —
+        # নইলে ডিপ্লয়ের সময় "table has no column" এসে সাইট বসে যেত
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: টেস্ট
+        run: pytest -q
+
+      - name: নিরাপত্তা যাচাই (DEBUG=False)
+        env:
+          DJANGO_DEBUG: "False"
+          DJANGO_HTTPS: "True"
+          DJANGO_ALLOWED_HOSTS: example.com
+        # --fail-level ERROR: drf-spectacular-এর নাম-সংঘর্ষের WARNING
+        # গুলো CI ভাঙাবে না, কিন্তু আসল নিরাপত্তা ERROR ভাঙাবে
+        run: python manage.py check --deploy --fail-level ERROR
+
+  # ---------------------------------------------------------- ফ্রন্টএন্ড
+  frontend:
+    name: React (lint + test + build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: লিন্ট
+        run: npm run lint
+
+      - name: টেস্ট
+        run: npm test -- --run
+
+      - name: টাইপ যাচাই
+        run: npm run typecheck
+
+      - name: বিল্ড
+        env:
+          VITE_USE_MOCK: "false"
+          VITE_API_URL: /api/v1
+        run: npm run build
+
+  # -------------------------------------------------------------- Docker
+  # ইমেজ দুটো আদৌ বানানো যায় কি না। push হয় না, শুধু বিল্ড।
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: ব্যাকএন্ড ইমেজ
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: ফ্রন্টএন্ড ইমেজ
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
