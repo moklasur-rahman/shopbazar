@@ -118,6 +118,65 @@ docker compose up -d --build
 
 ---
 
+## সমস্যা হলে
+
+### `port is already allocated` / `bind: address already in use`
+
+অন্য কোনো প্রোগ্রাম ৮০৮০ পোর্টটা আগেই দখল করে আছে — সাধারণত
+**XAMPP/Apache**, Jenkins, বা অন্য কোনো প্রজেক্ট।
+
+কে দখল করেছে দেখতে (PowerShell):
+
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Get-Process -Id $_.OwningProcess }
+```
+
+দুইটা উপায় —
+
+**১. অন্য পোর্টে চালান** (সহজ, ওই প্রোগ্রাম বন্ধ করতে হয় না):
+
+```powershell
+$env:WEB_PORT="9090"; docker compose up
+```
+
+তারপর <http://localhost:9090>। প্রতিবার লিখতে না চাইলে রিপোর রুটে
+একটা `.env` ফাইল বানিয়ে তাতে লিখুন:
+
+```
+WEB_PORT=9090
+```
+
+**২. ওই প্রোগ্রামটা বন্ধ করুন** — XAMPP হলে কন্ট্রোল প্যানেল থেকে
+Apache **Stop**।
+
+### সাইট খোলে কিন্তু অন্য কিছু দেখায়
+
+উপরের একই কারণ — আপনি আসলে XAMPP-এর পাতা দেখছেন, আমাদের nginx-এর নয়।
+পোর্ট বদলে দেখুন।
+
+### `docker compose` বলছে daemon চলছে না
+
+Docker Desktop চালু হয়নি বা এখনো বুট হচ্ছে। ট্রে-আইকনের তিমিটা স্থির
+না হওয়া পর্যন্ত অপেক্ষা করুন।
+
+### সাইট খালি — কোনো পণ্য নেই
+
+`.env.docker`-এ `SEED_ON_EMPTY=true` আছে কি না দেখুন। না থাকলে হাতে:
+
+```bash
+docker compose exec backend python manage.py seed
+```
+
+### লগ দেখা
+
+```bash
+docker compose logs -f backend    # Django
+docker compose logs -f web        # nginx
+docker compose logs -f db         # PostgreSQL
+```
+
+---
+
 ## যা মনে রাখতে হবে
 
 **`DJANGO_HTTPS=False` কেন**

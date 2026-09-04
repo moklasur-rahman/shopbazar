@@ -25,6 +25,10 @@ docker compose up --build
 
 প্রথমবার ৩–৫ মিনিট। তারপর **<http://localhost:8080>**
 
+> ৮০৮০ পোর্ট দখল করা থাকলে (XAMPP/Apache চললে এটা খুব সাধারণ):
+> `$env:WEB_PORT="9090"; docker compose up` — তারপর
+> <http://localhost:9090>
+
 ডেমো ডেটা আর অ্যাডমিন অ্যাকাউন্ট বসাতে (আরেকটা টার্মিনালে):
 
 ```bash

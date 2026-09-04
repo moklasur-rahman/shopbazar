@@ -24,6 +24,39 @@ const PRICE_BUCKETS = [
   { label: "৳১০,০০০ এর উপরে", min: "10000", max: "" },
 ];
 
+/*
+ * ⚠️ Group আর Row ইচ্ছে করে FilterPanel-এর **বাইরে**।
+ *
+ * ভেতরে থাকলে প্রতিবার FilterPanel রেন্ডার হওয়ার সময় নতুন করে ফাংশন
+ * তৈরি হতো, আর React নতুন ফাংশনকে সম্পূর্ণ আলাদা কম্পোনেন্ট ধরে পুরো
+ * সাবট্রি খুলে আবার বসাত। ফল: দামের ঘরে একটা অক্ষর টাইপ করলেই ইনপুট
+ * থেকে ফোকাস হারিয়ে যেত — প্রতিটা সংখ্যার পর আবার ক্লিক করতে হতো।
+ */
+
+function Group({ title, children }) {
+  return (
+    <div className="border-b border-line py-4 first:pt-0 last:border-0">
+      <h3 className="mb-2.5 font-display text-[15px] font-semibold text-ink">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Row({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cx(
+        "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[13.5px] transition",
+        active ? "bg-brand-50 font-medium text-brand-700" : "text-ink-2 hover:bg-canvas",
+      )}
+    >
+      <span className="truncate">{children}</span>
+      {active && <Check size={15} className="shrink-0" />}
+    </button>
+  );
+}
+
 /* ----------------------------- ফিল্টার প্যানেল ---------------------------- */
 
 function FilterPanel({ params, update, categories, vendors, onDone }) {
@@ -39,26 +72,6 @@ function FilterPanel({ params, update, categories, vendors, onDone }) {
     update({ min_price: minPrice, max_price: maxPrice, page: 1 });
     onDone?.();
   }
-
-  const Group = ({ title, children }) => (
-    <div className="border-b border-line py-4 first:pt-0 last:border-0">
-      <h3 className="mb-2.5 font-display text-[15px] font-semibold text-ink">{title}</h3>
-      {children}
-    </div>
-  );
-
-  const Row = ({ active, onClick, children }) => (
-    <button
-      onClick={onClick}
-      className={cx(
-        "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[13.5px] transition",
-        active ? "bg-brand-50 font-medium text-brand-700" : "text-ink-2 hover:bg-canvas",
-      )}
-    >
-      <span className="truncate">{children}</span>
-      {active && <Check size={15} className="shrink-0" />}
-    </button>
-  );
 
   return (
     <div className="px-1">

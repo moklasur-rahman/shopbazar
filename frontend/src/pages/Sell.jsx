@@ -88,22 +88,16 @@ const BENEFITS = [
   { icon: Headphones, title: "বাংলায় সাপোর্ট", text: "সমস্যা হলে ফোনে বাংলায় কথা বলে সমাধান, সকাল ৯টা থেকে রাত ৯টা।" },
 ];
 
-/* ------------------------- আয়ের ক্যালকুলেটর ------------------------- */
+/*
+ * ⚠️ Slider ইচ্ছে করে EarningsCalculator-এর **বাইরে**।
+ *
+ * ভেতরে থাকলে স্লাইডার নাড়ানোর সময় প্রতিটি পরিবর্তনে প্যারেন্ট রেন্ডার
+ * হতো, আর React নতুন ফাংশনকে আলাদা কম্পোনেন্ট ধরে <input> টা খুলে
+ * আবার বসাত। ফল: টেনে ধরে রাখা যেত না — মাঝপথেই আঙুল/মাউস ছুটে যেত।
+ */
 
-function EarningsCalculator({ categories }) {
-  const [price, setPrice] = useState(1500);
-  const [monthlyUnits, setMonthlyUnits] = useState(50);
-  const [category, setCategory] = useState("fashion");
-
-  const rate = RULES.commissionByCategory[category] ?? RULES.defaultCommissionRate;
-
-  const result = useMemo(() => {
-    const gross = price * monthlyUnits;
-    const commission = Math.round((gross * rate) / 100);
-    return { gross, commission, net: gross - commission };
-  }, [price, monthlyUnits, rate]);
-
-  const Slider = ({ label, value, onChange, min, max, step, format }) => (
+function Slider({ label, value, onChange, min, max, step, format }) {
+  return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
         <label className="text-[13.5px] font-medium text-ink-2">{label}</label>
@@ -122,6 +116,22 @@ function EarningsCalculator({ categories }) {
       />
     </div>
   );
+}
+
+/* ------------------------- আয়ের ক্যালকুলেটর ------------------------- */
+
+function EarningsCalculator({ categories }) {
+  const [price, setPrice] = useState(1500);
+  const [monthlyUnits, setMonthlyUnits] = useState(50);
+  const [category, setCategory] = useState("fashion");
+
+  const rate = RULES.commissionByCategory[category] ?? RULES.defaultCommissionRate;
+
+  const result = useMemo(() => {
+    const gross = price * monthlyUnits;
+    const commission = Math.round((gross * rate) / 100);
+    return { gross, commission, net: gross - commission };
+  }, [price, monthlyUnits, rate]);
 
   return (
     <Card className="overflow-hidden">

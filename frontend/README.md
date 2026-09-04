@@ -173,7 +173,7 @@ pageSize: 12,
 [../backend/README.md](../backend/README.md)-এ।
 
 ```bash
-cd backend
+cd ../backend
 .venv\Scripts\python.exe manage.py runserver
 ```
 

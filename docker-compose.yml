@@ -70,7 +70,15 @@ services:
         VITE_MEDIA_URL: ""
     restart: unless-stopped
     ports:
-      - "8080:80"
+      # বাইরের পোর্টটা বদলানো যায় — অনেক মেশিনে ৮০৮০ আগে থেকেই দখল করা
+      # থাকে (XAMPP/Apache, Jenkins, অন্য কোনো প্রজেক্ট)। তখন
+      # "port is already allocated" এসে চালুই হয় না।
+      #
+      #   Windows PowerShell:  $env:WEB_PORT="9090"; docker compose up
+      #   Git Bash / Linux  :  WEB_PORT=9090 docker compose up
+      #
+      # অথবা রিপোর রুটে একটা `.env` ফাইলে লিখে রাখুন:  WEB_PORT=9090
+      - "${WEB_PORT:-8080}:80"
     volumes:
       # ব্যাকএন্ডের সাথে একই ভলিউম — nginx সরাসরি ছবি দেয়, read-only
       - media:/var/www/media:ro
