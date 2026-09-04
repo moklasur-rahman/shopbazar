@@ -39,3 +39,8 @@ coverage/
 .pytest_cache/
 htmlcov/
 .coverage
+
+# ডেটাবেস ডাম্প — এতে পাসওয়ার্ড হ্যাশ আর KYC তথ্য থাকে, কখনো কমিট নয়
+dump*.json
+*.dump
+*.sql
