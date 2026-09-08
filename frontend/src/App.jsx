@@ -116,6 +116,40 @@ function RequireVendor({ children }) {
 }
 
 /**
+ * লগইন করা ক্রেতার দরজা।
+ *
+ * এটা না থাকায় যা হচ্ছিল: লগআউট অবস্থাতেও /checkout খুলে যেত।
+ * ক্রেতা পুরো ঠিকানা লিখে, পেমেন্ট বেছে, "অর্ডার করুন" চাপার পর
+ * সার্ভার ৪০১ দিত — আর কনসোলে কাঁচা এরর ছাড়া কিছুই বোঝা যেত না।
+ * এতক্ষণের টাইপ করা সব বৃথা যেত।
+ *
+ * এখন আগেই লগইনে পাঠানো হয়, আর `from`-এ পথটা রেখে দেওয়া হয় —
+ * লগইনের পর ক্রেতা ঠিক যেখান থেকে গিয়েছিলেন সেখানেই ফেরেন।
+ * query string-ও রাখা হয়, নইলে ফিল্টার/প্যারামিটার হারিয়ে যেত।
+ *
+ * মনে রাখবেন: এটা শুধু UI-র সুবিধা। আসল পাহারা ব্যাকএন্ডের
+ * IsAuthenticated পারমিশনে — সেটা এই গার্ড ছাড়াই কাজ করত, তাই
+ * নিরাপত্তার ফাঁক ছিল না; ফাঁকটা ছিল অভিজ্ঞতায়।
+ */
+function RequireAuth({ children }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) return <FullPageLoader />;
+
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        state={{ from: location.pathname + location.search }}
+        replace
+      />
+    );
+  }
+  return children;
+}
+
+/**
  * প্ল্যাটফর্ম অ্যাডমিনের দরজা।
  *
  * ব্যাকএন্ডের `is_staff` ফ্ল্যাগই একমাত্র শর্ত — `role` ফিল্ড নয়,
@@ -154,12 +188,47 @@ export default function App() {
                     <Route path="shops" element={<Shops />} />
                     <Route path="shop/:slug" element={<VendorStore />} />
                     <Route path="cart" element={<Cart />} />
-                    <Route path="checkout" element={<Checkout />} />
-                    <Route path="order-success/:number" element={<OrderSuccess />} />
+                    <Route
+                      path="checkout"
+                      element={
+                        <RequireAuth>
+                          <Checkout />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="order-success/:number"
+                      element={
+                        <RequireAuth>
+                          <OrderSuccess />
+                        </RequireAuth>
+                      }
+                    />
                     {/* গেটওয়ে এখানে ফেরত পাঠায় — success · pending · failed · cancelled */}
-                    <Route path="payment/:outcome/:number" element={<PaymentResult />} />
-                    <Route path="orders" element={<Orders />} />
-                    <Route path="orders/:number" element={<OrderDetail />} />
+                    <Route
+                      path="payment/:outcome/:number"
+                      element={
+                        <RequireAuth>
+                          <PaymentResult />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="orders"
+                      element={
+                        <RequireAuth>
+                          <Orders />
+                        </RequireAuth>
+                      }
+                    />
+                    <Route
+                      path="orders/:number"
+                      element={
+                        <RequireAuth>
+                          <OrderDetail />
+                        </RequireAuth>
+                      }
+                    />
                     <Route path="wishlist" element={<Wishlist />} />
                     <Route path="sell" element={<Sell />} />
                     <Route path="help" element={<Help />} />
