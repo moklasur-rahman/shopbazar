@@ -42,10 +42,26 @@ class GatewayError(Exception):
     """গেটওয়ের সাথে কথা বলা যায়নি, বা সে বোধগম্য উত্তর দেয়নি।"""
 
 
+class GatewayNotConfigured(GatewayError):
+    """
+    মার্চেন্ট অ্যাকাউন্টের কি বসানো হয়নি।
+
+    আলাদা ব্যতিক্রম কেন: এটা "গেটওয়ে বন্ধ" নয়, "আমরা এখনো চালু করিনি"।
+    ক্রেতাকে এই দুইটার আলাদা বার্তা দেখানো দরকার — আর তার সামনে
+    কখনোই "STORE_ID দেওয়া নেই" লেখা যাবে না, ওটা ডেভেলপারের কথা।
+    """
+
+
+def is_configured():
+    """কি বসানো আছে কি না — অনলাইন পেমেন্ট দেখানো যাবে কি না ঠিক করতে।"""
+    cfg = settings.SSLCOMMERZ
+    return bool(cfg["STORE_ID"] and cfg["STORE_PASSWORD"])
+
+
 def _config():
     cfg = settings.SSLCOMMERZ
-    if not cfg["STORE_ID"] or not cfg["STORE_PASSWORD"]:
-        raise GatewayError(
+    if not is_configured():
+        raise GatewayNotConfigured(
             "SSLCommerz-এর STORE_ID / STORE_PASSWORD দেওয়া নেই। "
             ".env ফাইলে বসিয়ে সার্ভার রিস্টার্ট করুন।"
         )

@@ -705,6 +705,25 @@ export const vendorPanelApi = {
 
 export const paymentsApi = {
   /**
+   * কোন পদ্ধতিগুলো আসলে কাজ করবে।
+   *
+   * চেকআউট এটা দেখে বন্ধগুলো নিষ্ক্রিয় করে — নইলে ক্রেতা বেছে অর্ডার
+   * করে ফেলার পর গেটওয়ে খুলতে গিয়ে আটকে যেতেন।
+   */
+  async methods() {
+    const raw = await http.get(ENDPOINTS.payments.methods, undefined, { auth: false });
+    return {
+      onlineEnabled: Boolean(raw.online_enabled),
+      methods: (raw.methods ?? []).map((m) => ({
+        id: m.id,
+        name: m.name,
+        available: Boolean(m.available),
+        note: m.note ?? "",
+      })),
+    };
+  },
+
+  /**
    * অর্ডারের জন্য গেটওয়ের পাতার ঠিকানা আনে।
    *
    * ফেরত দেয় { gatewayUrl, tranId }। ফ্রন্টএন্ড এরপর

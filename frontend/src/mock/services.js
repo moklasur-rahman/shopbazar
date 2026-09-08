@@ -6,7 +6,7 @@
 
 import { RULES, STORAGE_KEYS } from "../config";
 import { calculateCart, vendorSettlement } from "../lib/pricing";
-import { isInsideDhaka } from "../lib/bd";
+import { isInsideDhaka, PAYMENT_METHODS } from "../lib/bd";
 import * as db from "./db";
 
 const wait = (ms = 260) => new Promise((r) => setTimeout(r, ms));
@@ -1163,6 +1163,20 @@ export const vendorPanelApi = {
 /* ------------------------------- পেমেন্ট ------------------------------- */
 
 export const paymentsApi = {
+  /** মক মোডে গেটওয়ে নেই, কিন্তু UI দেখানোর জন্য সবগুলোই চালু ধরা হয় */
+  async methods() {
+    await wait(120);
+    return {
+      onlineEnabled: true,
+      methods: PAYMENT_METHODS.map((m) => ({
+        id: m.id,
+        name: m.name,
+        available: true,
+        note: "",
+      })),
+    };
+  },
+
   /**
    * মক মোডে আসল গেটওয়ে নেই, তাই ক্রেতাকে সাইটেরই একটা পাতায়
    * পাঠানো হয় যেটা "সফল" ধরে নেয়।

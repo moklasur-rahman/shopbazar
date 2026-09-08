@@ -89,6 +89,46 @@ export default function Checkout() {
   });
   const [payment, setPayment] = useState("cod");
 
+  /**
+   * কোন পেমেন্ট পদ্ধতিগুলো আসলে কাজ করবে।
+   *
+   * গেটওয়ের মার্চেন্ট কি বসানো না থাকলে বিকাশ/নগদ/কার্ড কাজ করে না।
+   * আগে সেগুলোও দেখানো হতো — ক্রেতা বেছে অর্ডার করে ফেলার পর গেটওয়ে
+   * খুলতে গিয়ে এরর খেতেন, আর অর্ডারটা টাকা না দেওয়া অবস্থায় ঝুলে
+   * থাকত। তাই আগেই জেনে নিয়ে বন্ধগুলো নিষ্ক্রিয় দেখানো হয়।
+   *
+   * null = এখনো জানা যায়নি; তখন সব দেখানো হয় (সার্ভার উত্তর না দিলে
+   * পুরো চেকআউট আটকে দেওয়ার চেয়ে সেটা ভালো)।
+   */
+  const [methodInfo, setMethodInfo] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.payments
+      .methods()
+      .then((data) => {
+        if (cancelled) return;
+        setMethodInfo(data);
+        // বেছে রাখা পদ্ধতিটাই যদি বন্ধ হয়, cod-এ ফিরিয়ে আনা
+        const usable = new Set(
+          data.methods.filter((m) => m.available).map((m) => m.id),
+        );
+        setPayment((current) => (usable.has(current) ? current : "cod"));
+      })
+      .catch(() => {
+        /* জানা গেল না — সব দেখানো থাক */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** কোনো পদ্ধতি ব্যবহারযোগ্য কি না (তথ্য না এলে সবই ধরা হয়) */
+  function methodState(id) {
+    const found = methodInfo?.methods?.find((m) => m.id === id);
+    return { available: found ? found.available : true, note: found?.note ?? "" };
+  }
+
   // কার্ট খালি হয়ে গেলে চেকআউটে থাকার মানে নেই।
   // `placed` শর্তটা জরুরি: অর্ডার সফল হলে কার্ট খালি করা হয়, তখন এই
   // গার্ডটা "সফল হয়েছে" পাতার বদলে কার্টে ফেরত পাঠিয়ে দিচ্ছিল।
@@ -334,28 +374,45 @@ export default function Checkout() {
             {step >= 2 && (
               <>
                 <div className="grid gap-2.5 sm:grid-cols-2">
-                  {PAYMENT_METHODS.map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => setPayment(m.id)}
-                      disabled={step > 2}
-                      className={cx(
-                        "flex items-center gap-3 rounded-xl border-2 p-3.5 text-left transition",
-                        payment === m.id
-                          ? "border-brand-500 bg-brand-50"
-                          : "border-line bg-white hover:border-brand-300",
-                      )}
-                    >
-                      <span className="text-2xl">{m.icon}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[14px] font-semibold text-ink">{m.name}</span>
-                        <span className="block text-[12px] text-muted">{m.hint}</span>
-                      </span>
-                      {payment === m.id && (
-                        <Check size={17} className="shrink-0 text-brand-600" />
-                      )}
-                    </button>
-                  ))}
+                  {PAYMENT_METHODS.map((m) => {
+                    const { available, note } = methodState(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => available && setPayment(m.id)}
+                        disabled={step > 2 || !available}
+                        title={available ? undefined : note}
+                        className={cx(
+                          "flex items-center gap-3 rounded-xl border-2 p-3.5 text-left transition",
+                          !available
+                            ? "cursor-not-allowed border-line bg-canvas opacity-60"
+                            : payment === m.id
+                              ? "border-brand-500 bg-brand-50"
+                              : "border-line bg-white hover:border-brand-300",
+                        )}
+                      >
+                        <span className={cx("text-2xl", !available && "grayscale")}>
+                          {m.icon}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-semibold text-ink">
+                            {m.name}
+                          </span>
+                          <span className="block text-[12px] text-muted">
+                            {available ? m.hint : note}
+                          </span>
+                        </span>
+                        {available && payment === m.id && (
+                          <Check size={17} className="shrink-0 text-brand-600" />
+                        )}
+                        {!available && (
+                          <span className="shrink-0 rounded-md bg-line px-2 py-0.5 text-[11px] font-medium text-muted">
+                            শীঘ্রই
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {payment !== "cod" && (

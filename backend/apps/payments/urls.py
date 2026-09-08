@@ -1,10 +1,13 @@
 from django.urls import path
 
 from .views import (
-    PaymentCallbackView, PaymentIpnView, PaymentStatusView, StartPaymentView,
+    PaymentCallbackView, PaymentIpnView, PaymentMethodsView, PaymentStatusView,
+    StartPaymentView,
 )
 
 urlpatterns = [
+    # চেকআউট এটা দেখে ঠিক করে কোন পদ্ধতিগুলো দেখাবে
+    path("methods/", PaymentMethodsView.as_view(), name="payment-methods"),
     path("start/", StartPaymentView.as_view(), name="payment-start"),
     path("status/<str:order_number>/", PaymentStatusView.as_view(), name="payment-status"),
 

@@ -41,6 +41,44 @@ def _frontend_url(path):
 
 @extend_schema(
     tags=["payments"],
+    summary="কোন পেমেন্ট পদ্ধতিগুলো এখন চালু",
+    description=(
+        "চেকআউটে কোনগুলো দেখানো যাবে তা এখান থেকে জানা যায়। "
+        "গেটওয়ের মার্চেন্ট কি বসানো না থাকলে অনলাইন পদ্ধতিগুলো "
+        "`available: false` হয়ে আসে — তখন ফ্রন্টএন্ড ওগুলো নিষ্ক্রিয় "
+        "দেখায়, যাতে ক্রেতা অর্ডার করে ফেলার পর আটকে না যান।"
+    ),
+    responses={200: OpenApiResponse(description="[{id, name, available, note}]")},
+)
+class PaymentMethodsView(APIView):
+    """
+    GET /payments/methods/ — কোনগুলো আসলে কাজ করবে।
+
+    এটা না থাকলে যা হতো (এবং হয়েছিল): ক্রেতা "বিকাশ" বেছে অর্ডার
+    করে ফেলতেন, তারপর গেটওয়ে খুলতে গিয়ে এরর — অর্ডারটা pending
+    অবস্থায় ঝুলে থাকত আর ক্রেতা বুঝতেন না কী করবেন।
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        online_ready = gateway.is_configured()
+        labels = dict(Order.PAYMENT_METHODS)
+
+        methods = []
+        for key in labels:
+            usable = True if key == "cod" else online_ready
+            methods.append({
+                "id": key,
+                "name": labels[key],
+                "available": usable,
+                "note": "" if usable else "অনলাইন পেমেন্ট এখনো চালু হয়নি",
+            })
+        return Response({"methods": methods, "online_enabled": online_ready})
+
+
+@extend_schema(
+    tags=["payments"],
     summary="পেমেন্ট শুরু",
     description=(
         "অর্ডারের জন্য SSLCommerz-এ একটা সেশন খুলে গেটওয়ের পাতার ঠিকানা "
@@ -76,6 +114,18 @@ class StartPaymentView(APIView):
         try:
             txn, url = services.start_payment(
                 order, settings.SSLCOMMERZ["CALLBACK_BASE_URL"]
+            )
+        except gateway.GatewayNotConfigured as exc:
+            # আসল কারণটা লগে থাকুক (ডেভেলপারের জন্য), কিন্তু ক্রেতার
+            # সামনে "STORE_ID দেওয়া নেই" লেখা অর্থহীন ও অপেশাদার
+            logger.error("পেমেন্ট গেটওয়ে কনফিগার করা নেই: %s", exc)
+            return Response(
+                {
+                    "detail": "অনলাইন পেমেন্ট এখনো চালু হয়নি। "
+                              "ক্যাশ অন ডেলিভারিতে অর্ডার করুন।",
+                    "code": "gateway_not_configured",
+                },
+                status=http_status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except gateway.GatewayError as exc:
             return Response({"detail": str(exc)}, status=http_status.HTTP_502_BAD_GATEWAY)
