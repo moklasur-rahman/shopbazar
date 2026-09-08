@@ -167,6 +167,21 @@ export const ordersApi = {
     return toPage(await http.get(ENDPOINTS.orders.list, params), toOrder);
   },
 
+  /**
+   * অ্যাকাউন্ট ছাড়া করা অর্ডার খোঁজা।
+   *
+   * GET নয়, POST — GET হলে অর্ডার নম্বর আর ফোন ব্রাউজারের ইতিহাসে
+   * আর সার্ভারের লগে থেকে যেত।
+   */
+  async track({ orderNumber, phone }) {
+    const raw = await http.post(
+      ENDPOINTS.orders.track,
+      { order_number: orderNumber, phone },
+      { auth: false },
+    );
+    return toOrder(raw);
+  },
+
   async get(number) {
     return toOrder(await http.get(ENDPOINTS.orders.detail(number)));
   },

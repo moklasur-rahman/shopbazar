@@ -394,6 +394,19 @@ export const ordersApi = {
     return found;
   },
 
+  /** মক মোডে ফোনও মিলিয়ে দেখা হয়, যাতে আসল আচরণটাই টের পাওয়া যায় */
+  async track({ orderNumber, phone }) {
+    await wait(400);
+    const digits = (v) => String(v ?? "").replace(/\D/g, "").replace(/^880/, "");
+    const found = loadOrders().find(
+      (o) =>
+        o.number.toUpperCase() === String(orderNumber).trim().toUpperCase() &&
+        digits(o.address?.phone).endsWith(digits(phone).slice(-10)),
+    );
+    if (!found) throw new Error("এই অর্ডার নম্বর ও মোবাইল নম্বরে কোনো অর্ডার পাওয়া যায়নি।");
+    return found;
+  },
+
   async cancelVendorOrder(id, reason) {
     await wait(300);
     const orders = loadOrders();

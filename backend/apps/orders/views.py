@@ -11,9 +11,25 @@ from apps.promotions.models import Coupon
 
 from .models import Order, OrderItem, VendorOrder
 from .serializers import (
-    OrderCreateSerializer, OrderSerializer, QuoteInputSerializer, VendorOrderSerializer,
+    OrderCreateSerializer, OrderSerializer, QuoteInputSerializer, TrackOrderSerializer,
+    VendorOrderSerializer,
 )
 from .services import calculate, cancel_vendor_order, place_order
+
+
+def normalize_phone(value):
+    """
+    তুলনার আগে ফোন নম্বর এক চেহারায় আনা।
+
+    মানুষ নানাভাবে লেখেন — 01711111111, 017-1111-1111, +8801711111111।
+    হুবহু মিলিয়ে দেখলে নিজের অর্ডারই খুঁজে পেতেন না।
+    """
+    digits = "".join(ch for ch in str(value or "") if ch.isdigit())
+    if digits.startswith("880"):
+        digits = digits[3:]
+    if not digits.startswith("0"):
+        digits = "0" + digits
+    return digits
 
 
 def find_coupon(code):
@@ -73,10 +89,32 @@ class QuoteView(APIView):
 
 class OrderViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
                    mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """
+    ক্রেতার অর্ডার।
+
+    অর্ডার **করতে** লগইন লাগে না — ক্যাশ অন ডেলিভারিতে (নিচে
+    `get_permissions` দেখুন)। কিন্তু অর্ডারের তালিকা দেখতে লাগে,
+    কারণ তালিকা মানেই "আমার সব অর্ডার", আর সেটা অ্যাকাউন্ট ছাড়া
+    বোঝানোর উপায় নেই। গেস্ট নিজের অর্ডার দেখেন নম্বর + ফোন দিয়ে
+    (`/orders/track/`)।
+    """
+
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = "order_number"
     lookup_value_regex = "[^/]+"
+
+    def get_permissions(self):
+        """
+        অর্ডার তৈরিতে লগইন বাধ্যতামূলক নয়।
+
+        তবে এটা "যা খুশি" নয় — `create()`-এ দেখা হয় পেমেন্ট পদ্ধতি
+        cod কি না। অনলাইন পেমেন্টে লগইন লাগেই, কারণ টাকা ফেরত,
+        লেনদেনের ইতিহাস আর বিরোধ মেটানো — সবকিছুর জন্য অ্যাকাউন্ট দরকার।
+        """
+        if self.action == "create":
+            return [AllowAny()]
+        return super().get_permissions()
 
     def get_throttles(self):
         if self.action == "create":
@@ -139,8 +177,25 @@ class OrderViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
         # হেডার আগে — সেটাই প্রচলিত নিয়ম; না থাকলে বডির মান
         key = (request.headers.get("Idempotency-Key") or data.get("idempotency_key") or "").strip()
 
+        logged_in = request.user.is_authenticated
+
+        # 🔒 লগইন ছাড়া শুধু ক্যাশ অন ডেলিভারি।
+        #
+        # অনলাইন পেমেন্টে অ্যাকাউন্ট লাগেই — টাকা ফেরত দিতে হলে কাকে
+        # দেব, লেনদেনের ইতিহাস কে দেখবে, বিরোধ হলে কার সাথে কথা বলব।
+        # ফোন নম্বর দিয়ে সেসব সামলানো যায় না।
+        if not logged_in and data["payment_method"] != "cod":
+            return Response(
+                {
+                    "detail": "অনলাইনে টাকা দিতে হলে আগে লগইন করুন। "
+                              "ক্যাশ অন ডেলিভারিতে লগইন ছাড়াই অর্ডার করা যায়।",
+                    "code": "login_required_for_online_payment",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         order = place_order(
-            user=request.user,
+            user=request.user if logged_in else None,
             items=data["items"],
             address=dict(data["shipping_address"]),
             payment_method=data["payment_method"],
@@ -190,3 +245,61 @@ class CancelVendorOrderView(APIView):
         cancel_vendor_order(vendor_order, reason)
 
         return Response(VendorOrderSerializer(vendor_order, context={"request": request}).data)
+
+
+@extend_schema(
+    tags=["orders"],
+    summary="অর্ডার খোঁজা (লগইন ছাড়া)",
+    description=(
+        "অ্যাকাউন্ট ছাড়া অর্ডার করা ক্রেতা এখান থেকে নিজের অর্ডার দেখেন — "
+        "অর্ডার নম্বর ও যে মোবাইল নম্বর দিয়ে অর্ডার করেছিলেন, দুটোই লাগে।"
+    ),
+    request=TrackOrderSerializer,
+    responses={200: OrderSerializer, 404: OpenApiResponse(description="মেলেনি")},
+)
+class TrackOrderView(APIView):
+    """
+    POST /orders/track/  { order_number, phone }
+
+    ⚠️ কেন GET নয়: GET হলে অর্ডার নম্বর আর ফোন ব্রাউজারের ইতিহাসে,
+    সার্ভারের অ্যাক্সেস লগে আর রেফারার হেডারে থেকে যেত।
+
+    ⚠️ কেন throttle: নম্বর অনুমান করে বারবার চেষ্টা করা ঠেকাতে।
+    সফল-ব্যর্থ দুই ক্ষেত্রেই একই ৪০৪ বার্তা — নইলে "নম্বর ঠিক কিন্তু
+    ফোন ভুল" আর "নম্বরই নেই" আলাদা করে বোঝা যেত, আর সেটা দিয়ে কোন
+    অর্ডার নম্বরগুলো আসল তা বের করা যেত।
+    """
+
+    permission_classes = [AllowAny]
+    throttle_scope = "auth"
+
+    def post(self, request):
+        payload = TrackOrderSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        number = payload.validated_data["order_number"].strip().upper()
+        phone = normalize_phone(payload.validated_data["phone"])
+
+        order = (
+            Order.objects.filter(order_number=number)
+            .prefetch_related(
+                Prefetch(
+                    "vendor_orders",
+                    queryset=VendorOrder.objects.select_related("vendor").prefetch_related(
+                        Prefetch("items", queryset=OrderItem.objects.all())
+                    ),
+                )
+            )
+            .first()
+        )
+
+        not_found = Response(
+            {"detail": "এই অর্ডার নম্বর ও মোবাইল নম্বরে কোনো অর্ডার পাওয়া যায়নি।"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+        if order is None:
+            return not_found
+        if normalize_phone(order.contact_phone) != phone:
+            return not_found
+
+        return Response(OrderSerializer(order, context={"request": request}).data)

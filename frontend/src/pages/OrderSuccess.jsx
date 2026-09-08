@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { CheckCircle2, Package, Store, Truck, Home, Receipt } from "lucide-react";
 import { api } from "../api";
 import { useAsync } from "../hooks/useAsync";
@@ -8,7 +8,26 @@ import { PAYMENT_METHODS } from "../lib/bd";
 
 export default function OrderSuccess() {
   const { number } = useParams();
-  const { data: order, loading } = useAsync(() => api.orders.get(number), [number]);
+  const location = useLocation();
+
+  /**
+   * চেকআউট অর্ডারটা সরাসরি হাতে ধরিয়ে দেয় (navigate state)।
+   *
+   * এটা না থাকলে যা হচ্ছিল: অ্যাকাউন্ট ছাড়া অর্ডার করা ক্রেতা
+   * অর্ডার সফল হওয়ার পরেই "অর্ডারটি পাওয়া যায়নি" দেখতেন — কারণ
+   * এই পাতা `GET /orders/:number/` ডাকত, আর সেটায় লগইন লাগে।
+   *
+   * state-এ পেলে কোনো API কলই লাগে না — অর্ডারটা তো এইমাত্র
+   * তৈরি হলো, ডেটা হাতেই আছে।
+   */
+  const handed = location.state?.order;
+
+  const { data: fetched, loading } = useAsync(
+    // হাতে পেলে সার্ভারে যাওয়ার দরকার নেই
+    () => (handed ? Promise.resolve(handed) : api.orders.get(number)),
+    [number, handed],
+  );
+  const order = handed ?? fetched;
 
   if (loading) {
     return (
@@ -23,6 +42,13 @@ export default function OrderSuccess() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 text-center">
         <p className="text-muted">অর্ডারটি পাওয়া যায়নি।</p>
+        <p className="mt-1.5 text-[13.5px] text-muted">
+          অ্যাকাউন্ট ছাড়া অর্ডার করে থাকলে{" "}
+          <Link to="/track" className="font-medium text-brand-600 hover:underline">
+            অর্ডার খুঁজুন
+          </Link>{" "}
+          পাতায় নম্বর ও মোবাইল দিয়ে দেখুন।
+        </p>
         <Button as={Link} to="/" className="mt-4">হোমে যান</Button>
       </div>
     );

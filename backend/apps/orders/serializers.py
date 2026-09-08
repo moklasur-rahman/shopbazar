@@ -102,3 +102,17 @@ class OrderCreateSerializer(serializers.Serializer):
 
 class StatusUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=VendorOrder.Status.choices)
+
+
+class TrackOrderSerializer(serializers.Serializer):
+    """
+    গেস্ট অর্ডার খোঁজার ইনপুট।
+
+    ফোন নম্বরটা কেন লাগে: শুধু অর্ডার নম্বর দিয়ে খুলতে দিলে কেউ
+    SB-000001, SB-000002… করে অন্যের অর্ডার, নাম, ঠিকানা আর ফোন
+    সব দেখে ফেলতে পারত। নম্বর অনুমান করা সহজ, কিন্তু নম্বর **আর**
+    ফোন একসাথে অনুমান করা কঠিন।
+    """
+
+    order_number = serializers.CharField(max_length=20)
+    phone = serializers.CharField(max_length=14)

@@ -141,7 +141,7 @@ python manage.py runserver
 
 | কমান্ড | কী দেখে |
 |---|---|
-| `cd backend && pytest` | ১২৪টি টেস্ট — টাকার হিসাব, অর্ডার, **পেমেন্ট**, নিরাপত্তা, নিয়মের মিল, কোয়েরি গণনা |
+| `cd backend && pytest` | ১৪৩টি টেস্ট — টাকার হিসাব, অর্ডার, **পেমেন্ট**, **গেস্ট চেকআউট**, নিরাপত্তা, নিয়মের মিল, কোয়েরি গণনা |
 | `cd frontend && npm test` | ৩১টি টেস্ট — টাকার হিসাব, নিয়মের মিল |
 | `cd frontend && npm run lint` | ESLint |
 | `cd frontend && npm run typecheck` | TypeScript |

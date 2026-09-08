@@ -40,8 +40,24 @@ class Order(TimeStamped):
         ("card", "কার্ড / ব্যাংক"),
     ]
 
+    #: অ্যাকাউন্ট ছাড়াও অর্ডার করা যায় (গেস্ট চেকআউট), তাই খালি থাকতে পারে।
+    #:
+    #: বাংলাদেশে অনেক ক্রেতা অ্যাকাউন্ট খুলতে চান না — ক্যাশ অন ডেলিভারিতে
+    #: তার দরকারও নেই, কারণ টাকা তো হাতে হাতে। জোর করে রেজিস্ট্রেশন
+    #: চাইলে অর্ডারটাই হারানোর ঝুঁকি।
+    #:
+    #: গেস্ট অর্ডারে পরিচয় থাকে `shipping_address["phone"]`-এ, আর সেই
+    #: নম্বর + অর্ডার নম্বর দিয়েই পরে অর্ডার দেখা যায় (track এন্ডপয়েন্ট)।
+    #:
+    #: ⚠️ ইচ্ছে করেই ফোন নম্বর দেখে কোনো বিদ্যমান অ্যাকাউন্টের সাথে
+    #: জুড়ে দেওয়া হয় না। জুড়লে যে কেউ অন্যের নম্বর বসিয়ে অর্ডার করে
+    #: তার অর্ডার-ইতিহাসে ঢুকে পড়ত।
     customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="orders"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="orders",
+        null=True,
+        blank=True,
     )
     order_number = models.CharField(max_length=20, unique=True, default=make_order_number)
 
@@ -82,11 +98,35 @@ class Order(TimeStamped):
                 fields=["customer", "idempotency_key"],
                 condition=~models.Q(idempotency_key=""),
                 name="uniq_order_idempotency_per_customer",
-            )
+            ),
+            # ⚠️ উপরের কনস্ট্রেইন্টটা গেস্ট অর্ডারে কাজ করে না।
+            #
+            # SQL-এ NULL কখনো NULL-এর সমান নয়, তাই customer খালি হলে
+            # ডেটাবেস দুইটা সারিকে "আলাদা" ধরে — একই কি দিয়ে দুইবার
+            # অনুরোধ এলে দুইটা অর্ডারই তৈরি হয়ে যেত, আর দুইবার স্টক
+            # কমত। লগইন করা ক্রেতার জন্য সুরক্ষা আছে অথচ গেস্টের নেই —
+            # এমন ফাঁক চোখে পড়া কঠিন।
+            #
+            # তাই গেস্টদের জন্য কি-টাকেই বিশ্বব্যাপী ইউনিক করা হলো।
+            # কি হলো UUID, তাই দুইজনের কি মিলে যাওয়ার আশঙ্কা নেই।
+            models.UniqueConstraint(
+                fields=["idempotency_key"],
+                condition=models.Q(customer__isnull=True) & ~models.Q(idempotency_key=""),
+                name="uniq_order_idempotency_guest",
+            ),
         ]
 
     def __str__(self):
         return self.order_number
+
+    @property
+    def is_guest(self):
+        return self.customer_id is None
+
+    @property
+    def contact_phone(self):
+        """যোগাযোগের নম্বর — গেস্টের ক্ষেত্রে এটাই একমাত্র পরিচয়।"""
+        return (self.shipping_address or {}).get("phone", "")
 
     def recalculate(self, save=True):
         """সব পার্সেলের যোগফলই মূল অর্ডারের হিসাব।"""

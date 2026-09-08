@@ -30,6 +30,7 @@ const VendorStore = lazy(() => import("./pages/VendorStore"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
 const PaymentResult = lazy(() => import("./pages/PaymentResult"));
+const TrackOrder = lazy(() => import("./pages/TrackOrder"));
 const Orders = lazy(() => import("./pages/Orders"));
 const OrderDetail = lazy(() => import("./pages/OrderDetail"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
@@ -188,22 +189,15 @@ export default function App() {
                     <Route path="shops" element={<Shops />} />
                     <Route path="shop/:slug" element={<VendorStore />} />
                     <Route path="cart" element={<Cart />} />
-                    <Route
-                      path="checkout"
-                      element={
-                        <RequireAuth>
-                          <Checkout />
-                        </RequireAuth>
-                      }
-                    />
-                    <Route
-                      path="order-success/:number"
-                      element={
-                        <RequireAuth>
-                          <OrderSuccess />
-                        </RequireAuth>
-                      }
-                    />
+                    {/*
+                      চেকআউটে RequireAuth নেই — ক্যাশ অন ডেলিভারিতে
+                      অ্যাকাউন্ট ছাড়াই অর্ডার করা যায়। অনলাইন পেমেন্ট
+                      বাছলে Checkout নিজেই লগইনে পাঠায়, আর ব্যাকএন্ডও
+                      cod ছাড়া অন্য কিছুতে ৪০১ দেয়।
+                    */}
+                    <Route path="checkout" element={<Checkout />} />
+                    {/* গেস্ট অর্ডারের পরও এই পাতাটা দেখা যেতে হবে */}
+                    <Route path="order-success/:number" element={<OrderSuccess />} />
                     {/* গেটওয়ে এখানে ফেরত পাঠায় — success · pending · failed · cancelled */}
                     <Route
                       path="payment/:outcome/:number"
@@ -229,6 +223,8 @@ export default function App() {
                         </RequireAuth>
                       }
                     />
+                    {/* অ্যাকাউন্ট ছাড়া অর্ডার করা ক্রেতা এখান থেকে দেখেন */}
+                    <Route path="track" element={<TrackOrder />} />
                     <Route path="wishlist" element={<Wishlist />} />
                     <Route path="sell" element={<Sell />} />
                     <Route path="help" element={<Help />} />

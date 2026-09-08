@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, CreditCard, Package, Check, ArrowLeft, Store, Truck } from "lucide-react";
+import { MapPin, CreditCard, Package, Check, ArrowLeft, Store, Truck, LogIn } from "lucide-react";
 import { newIdempotencyKey } from "../lib/idempotency";
 import { api } from "../api";
 import { useCart } from "../store/CartContext";
@@ -110,10 +110,8 @@ export default function Checkout() {
         if (cancelled) return;
         setMethodInfo(data);
         // বেছে রাখা পদ্ধতিটাই যদি বন্ধ হয়, cod-এ ফিরিয়ে আনা
-        const usable = new Set(
-          data.methods.filter((m) => m.available).map((m) => m.id),
-        );
-        setPayment((current) => (usable.has(current) ? current : "cod"));
+        const ok = new Set(data.methods.filter((m) => m.available).map((m) => m.id));
+        setPayment((current) => (ok.has(current) ? current : "cod"));
       })
       .catch(() => {
         /* জানা গেল না — সব দেখানো থাক */
@@ -123,10 +121,33 @@ export default function Checkout() {
     };
   }, []);
 
-  /** কোনো পদ্ধতি ব্যবহারযোগ্য কি না (তথ্য না এলে সবই ধরা হয়) */
+  /**
+   * কোনো পদ্ধতি এখন ব্যবহার করা যাবে কি না।
+   *
+   * দুইটা আলাদা কারণে বন্ধ হতে পারে, আর ক্রেতাকে দুইটার আলাদা কথা
+   * বলতে হয়:
+   *   ১. গেটওয়ে চালু নেই        → "শীঘ্রই", কিছু করার নেই
+   *   ২. লগইন করা নেই            → "লগইন করুন", ক্লিক করলেই পথ আছে
+   *
+   * ক্যাশ অন ডেলিভারিতে লগইন লাগে না — টাকা হাতে হাতে, তাই
+   * অ্যাকাউন্টের দরকারই পড়ে না।
+   */
   function methodState(id) {
     const found = methodInfo?.methods?.find((m) => m.id === id);
-    return { available: found ? found.available : true, note: found?.note ?? "" };
+    const gatewayReady = found ? found.available : true;
+
+    if (!gatewayReady) {
+      return { usable: false, reason: "gateway", note: found?.note ?? "" };
+    }
+    if (id !== "cod" && !user) {
+      return { usable: false, reason: "login", note: "অনলাইনে দিতে লগইন করুন" };
+    }
+    return { usable: true, reason: null, note: "" };
+  }
+
+  /** অনলাইন পদ্ধতিতে ক্লিক করলে লগইনে পাঠাই, ফিরে এসে যেন চেকআউটেই আসেন */
+  function goLogin() {
+    navigate("/login", { state: { from: "/checkout" } });
   }
 
   // কার্ট খালি হয়ে গেলে চেকআউটে থাকার মানে নেই।
@@ -207,7 +228,9 @@ export default function Checkout() {
         }
       }
 
-      navigate(`/order-success/${order.number}`, { replace: true });
+      // অর্ডারটা সাথে পাঠানো হয় — গেস্টের ক্ষেত্রে ওই পাতা
+      // `GET /orders/:number/` ডাকতে পারে না (লগইন লাগে)
+      navigate(`/order-success/${order.number}`, { replace: true, state: { order } });
     } catch (err) {
       toast.error(err.message || "অর্ডার করা গেল না, আবার চেষ্টা করুন");
     } finally {
@@ -375,40 +398,60 @@ export default function Checkout() {
               <>
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   {PAYMENT_METHODS.map((m) => {
-                    const { available, note } = methodState(m.id);
+                    const { usable, reason, note } = methodState(m.id);
+                    // লগইনের অভাবে বন্ধ হলে বোতামটা সচল থাকে — চাপলে
+                    // লগইনে যায়। গেটওয়ে বন্ধ হলে কিছু করার নেই, তাই নিষ্ক্রিয়।
+                    const clickable = usable || reason === "login";
                     return (
                       <button
                         key={m.id}
-                        onClick={() => available && setPayment(m.id)}
-                        disabled={step > 2 || !available}
-                        title={available ? undefined : note}
+                        onClick={() =>
+                          usable ? setPayment(m.id) : reason === "login" && goLogin()
+                        }
+                        disabled={step > 2 || !clickable}
+                        title={usable ? undefined : note}
                         className={cx(
                           "flex items-center gap-3 rounded-xl border-2 p-3.5 text-left transition",
-                          !available
-                            ? "cursor-not-allowed border-line bg-canvas opacity-60"
+                          !usable
+                            ? reason === "login"
+                              ? "border-line bg-white hover:border-brand-300"
+                              : "cursor-not-allowed border-line bg-canvas opacity-60"
                             : payment === m.id
                               ? "border-brand-500 bg-brand-50"
                               : "border-line bg-white hover:border-brand-300",
                         )}
                       >
-                        <span className={cx("text-2xl", !available && "grayscale")}>
+                        <span
+                          className={cx(
+                            "text-2xl",
+                            !usable && reason === "gateway" && "grayscale",
+                          )}
+                        >
                           {m.icon}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-[14px] font-semibold text-ink">
                             {m.name}
                           </span>
-                          <span className="block text-[12px] text-muted">
-                            {available ? m.hint : note}
+                          <span
+                            className={cx(
+                              "block text-[12px]",
+                              reason === "login" ? "text-brand-600" : "text-muted",
+                            )}
+                          >
+                            {usable ? m.hint : note}
                           </span>
                         </span>
-                        {available && payment === m.id && (
+                        {usable && payment === m.id && (
                           <Check size={17} className="shrink-0 text-brand-600" />
                         )}
-                        {!available && (
+                        {reason === "gateway" && (
                           <span className="shrink-0 rounded-md bg-line px-2 py-0.5 text-[11px] font-medium text-muted">
                             শীঘ্রই
                           </span>
+                        )}
+                        {reason === "login" && (
+                          <LogIn size={16} className="shrink-0 text-brand-600" />
                         )}
                       </button>
                     );

@@ -236,15 +236,28 @@ def first_image_url(product):
 
 
 def find_replay(user, idempotency_key):
-    """এই কি দিয়ে আগেই অর্ডার হয়ে গেছে কি না।"""
+    """
+    এই কি দিয়ে আগেই অর্ডার হয়ে গেছে কি না।
+
+    গেস্ট (user=None) হলে `customer=None` দিয়ে ফিল্টার করা যায় না —
+    Django ওটাকে `customer_id IS NULL` বানালেও ভুল বোঝাবুঝির সুযোগ
+    থাকে; তাই স্পষ্ট করে `customer__isnull=True` লেখা হয়েছে।
+    """
     if not idempotency_key:
         return None
+    if user is None or not getattr(user, "is_authenticated", False):
+        return Order.objects.filter(
+            customer__isnull=True, idempotency_key=idempotency_key
+        ).first()
     return Order.objects.filter(customer=user, idempotency_key=idempotency_key).first()
 
 
 def place_order(user, items, address, payment_method="cod", coupon=None, idempotency_key=""):
     """
     অর্ডার তৈরির একমাত্র পথ।
+
+    `user` None হতে পারে — তখন এটা গেস্ট অর্ডার (ক্যাশ অন ডেলিভারি)।
+    গেস্টের পরিচয় থাকে ঠিকানার ফোন নম্বরে।
 
     ⚠️ এটা নিজে ট্রানজেকশন নয় — আসল কাজটা `_create_order()` করে। এই স্তরটা
     আলাদা রাখার একটাই কারণ: একই কি দিয়ে দুইবার অনুরোধ এলে দ্বিতীয়বার
@@ -284,7 +297,8 @@ def _create_order(user, items, address, payment_method, coupon, idempotency_key)
     summary = calculate(items, address.get("district"), coupon)
 
     order = Order.objects.create(
-        customer=user,
+        # AnonymousUser সরাসরি বসানো যায় না — গেস্ট মানে খালি
+        customer=user if getattr(user, "is_authenticated", False) else None,
         order_number=make_order_number(),
         shipping_address=address,
         payment_method=payment_method,

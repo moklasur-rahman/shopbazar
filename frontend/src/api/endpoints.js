@@ -42,6 +42,8 @@ export const ENDPOINTS = {
 
   orders: {
     list: "/orders/",
+    /** অ্যাকাউন্ট ছাড়া অর্ডার খোঁজা — নম্বর + ফোন */
+    track: "/orders/track/",
     detail: (number) => `/orders/${number}/`,
     cancelVendorOrder: (id) => `/orders/vendor-orders/${id}/cancel/`,
   },
