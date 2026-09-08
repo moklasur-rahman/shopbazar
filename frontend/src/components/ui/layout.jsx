@@ -33,7 +33,17 @@ export function SectionHeader({ title, subtitle, action, className }) {
         <h2 className="font-display text-xl font-semibold text-ink sm:text-2xl">{title}</h2>
         {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
       </div>
-      {action}
+      {/*
+        অ্যাকশনটা সাধারণত "সব দেখুন" ধরনের একটা টেক্সট লিংক — মাপা
+        হয়েছিল ৪৭×২০px, ফোনে ছোঁয়ার জন্য ছোট। লিংকটা নিজে না বদলে
+        তার চারপাশে ছোঁয়ার জায়গা বাড়ানো হয়েছে (নেগেটিভ মার্জিন দিয়ে
+        দেখতে একই রইল), তাই প্রতিটা সেকশনে একবারেই ঠিক হয়ে গেল।
+      */}
+      {action && (
+        <div className="-m-2 flex shrink-0 items-center p-2 [&>a]:py-1 [&>button]:py-1">
+          {action}
+        </div>
+      )}
     </div>
   );
 }

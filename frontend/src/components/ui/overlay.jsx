@@ -47,7 +47,9 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
           <h3 className="font-display text-lg font-semibold">{title}</h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted transition hover:bg-canvas hover:text-ink"
+            // p-1.5 তে বোতামটা ৩১px হতো — ছোঁয়ার জন্য ছোট।
+            // আইকন একই আকারের, শুধু ছোঁয়ার জায়গা বড়।
+            className="-m-1 grid h-10 w-10 place-items-center rounded-lg text-muted transition hover:bg-canvas hover:text-ink"
             aria-label="বন্ধ করুন"
           >
             <X size={19} />
@@ -96,7 +98,9 @@ export function Drawer({ open, onClose, title, children, side = "right", width =
           <h3 className="font-display text-base font-semibold">{title}</h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted transition hover:bg-canvas hover:text-ink"
+            // p-1.5 তে বোতামটা ৩১px হতো — ছোঁয়ার জন্য ছোট।
+            // আইকন একই আকারের, শুধু ছোঁয়ার জায়গা বড়।
+            className="-m-1 grid h-10 w-10 place-items-center rounded-lg text-muted transition hover:bg-canvas hover:text-ink"
             aria-label="বন্ধ করুন"
           >
             <X size={19} />

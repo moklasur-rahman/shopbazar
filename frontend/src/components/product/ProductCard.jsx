@@ -60,13 +60,14 @@ export function ProductCard({ product, compact = false }) {
             onClick={handleWish}
             aria-label={wished ? "উইশলিস্ট থেকে সরান" : "উইশলিস্টে যোগ করুন"}
             className={cx(
-              "absolute top-2 right-2 grid h-8 w-8 place-items-center rounded-full backdrop-blur transition",
+              // ৩২px ছিল — ফোনে আঙুলের জন্য ছোট, পাশের কার্ডে ভুল ট্যাপ হতো
+              "absolute top-1.5 right-1.5 grid h-10 w-10 place-items-center rounded-full backdrop-blur transition",
               wished
                 ? "bg-red-500 text-white"
                 : "bg-white/90 text-ink-2 hover:bg-white hover:text-red-500",
             )}
           >
-            <Heart size={15} className={wished ? "fill-current" : ""} />
+            <Heart size={16} className={wished ? "fill-current" : ""} />
           </button>
 
           {outOfStock && (

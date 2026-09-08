@@ -63,17 +63,28 @@ function Hero({ banners, loading }) {
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-6 flex gap-1.5 sm:left-10 lg:left-14">
+      {/*
+        ডটগুলো দেখতে ছোট (৬px), কিন্তু আঙুলের জন্য ছোট হলে চলে না —
+        মাপা হয়েছিল ৮×৬px, যেটা ফোনে প্রায় ছোঁয়াই যায় না। তাই
+        বোতামটা ৪৪px লম্বা রেখে ভেতরের দাগটাই ছোট রাখা হয়েছে:
+        দেখতে আগের মতোই, ছুঁতে অনেক সহজ।
+      */}
+      <div className="absolute bottom-1 left-6 flex sm:left-10 lg:left-14">
         {banners.map((b, i) => (
           <button
             key={b.id}
             onClick={() => setIndex(i)}
             aria-label={`ব্যানার ${i + 1}`}
-            className={cx(
-              "h-1.5 rounded-full transition-all",
-              i === index ? "w-7 bg-white" : "w-2 bg-white/50 hover:bg-white/80",
-            )}
-          />
+            aria-current={i === index}
+            className="grid h-11 w-6 place-items-center"
+          >
+            <span
+              className={cx(
+                "block h-1.5 rounded-full transition-all",
+                i === index ? "w-7 bg-white" : "w-2 bg-white/50 hover:bg-white/80",
+              )}
+            />
+          </button>
         ))}
       </div>
     </div>
@@ -94,10 +105,16 @@ function CategoryStrip({ categories, loading }) {
           </Link>
         }
       />
+      {/*
+        ৪ বা ৮ কলামে গ্রিড, তাই আইটেমের সংখ্যা ৪-এর গুণিতক না হলে শেষ
+        সারিতে একটা-দুটো কার্ড একা পড়ে থাকে — দেখতে অগোছালো লাগে।
+        (৯টা ক্যাটাগরিতে ঠিক সেটাই হচ্ছিল।) তাই যতগুলো সারি পুরো ভরে
+        ততগুলোই দেখানো হয়, বাকিগুলো "সব দেখুন"-এ।
+      */}
       <div className="grid grid-cols-4 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
         {loading
           ? Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-24" />)
-          : categories.map((c) => (
+          : categories.slice(0, Math.max(4, Math.floor(categories.length / 4) * 4)).map((c) => (
               <Link
                 key={c.slug}
                 to={`/products?category=${c.slug}`}
@@ -106,7 +123,11 @@ function CategoryStrip({ categories, loading }) {
                 <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-50 text-xl transition group-hover:bg-brand-100">
                   {c.icon}
                 </span>
-                <span className="text-[12.5px] leading-tight font-medium text-ink">{c.name}</span>
+                {/* দুই লাইনের নামে ("ঘর ও রান্নাঘর") কার্ডটা লম্বা হয়ে
+                    সারি এবড়োখেবড়ো দেখাত — তাই উচ্চতা বেঁধে দেওয়া */}
+                <span className="line-clamp-2 flex min-h-[2.1em] items-center text-[12.5px] leading-tight font-medium text-ink">
+                  {c.name}
+                </span>
               </Link>
             ))}
       </div>
