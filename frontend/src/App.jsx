@@ -29,6 +29,7 @@ const Shops = lazy(() => import("./pages/Shops"));
 const VendorStore = lazy(() => import("./pages/VendorStore"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
+const PaymentResult = lazy(() => import("./pages/PaymentResult"));
 const Orders = lazy(() => import("./pages/Orders"));
 const OrderDetail = lazy(() => import("./pages/OrderDetail"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
@@ -155,6 +156,8 @@ export default function App() {
                     <Route path="cart" element={<Cart />} />
                     <Route path="checkout" element={<Checkout />} />
                     <Route path="order-success/:number" element={<OrderSuccess />} />
+                    {/* গেটওয়ে এখানে ফেরত পাঠায় — success · pending · failed · cancelled */}
+                    <Route path="payment/:outcome/:number" element={<PaymentResult />} />
                     <Route path="orders" element={<Orders />} />
                     <Route path="orders/:number" element={<OrderDetail />} />
                     <Route path="wishlist" element={<Wishlist />} />

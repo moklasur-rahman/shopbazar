@@ -326,16 +326,112 @@ DB_PORT=5432
 | কাজ | কোথায় বসবে |
 |-----|-------------|
 | আসল OTP পাঠানো | `accounts/views.py` → `VerifyOtpView` |
-| SSLCommerz পেমেন্ট + ওয়েবহুক | নতুন `apps/payments/` |
 | কুরিয়ার API (পাঠাও/স্টেডফাস্ট) | `vendors/panel.py` → `_advance()` এর shipped অংশে |
 | ইমেইল/SMS নোটিফিকেশন | Celery টাস্ক হিসেবে |
 | ছবি S3/Cloudinary-তে | `settings.py` → `DEFAULT_FILE_STORAGE` |
 
 সবগুলোর জন্য জায়গা আর কমেন্ট কোডে রাখা আছে।
 
+> SSLCommerz পেমেন্ট এই তালিকা থেকে নেমে গেছে — এখন `apps/payments/`-এ
+> তৈরি আছে, নিচের ১০ নম্বর অংশ দেখুন।
+
 ---
 
-## ১০. Docker ও CI
+## ১০. পেমেন্ট (SSLCommerz)
+
+একটা ইন্টিগ্রেশনেই বিকাশ, নগদ, রকেট, কার্ড আর ব্যাংক — `apps/payments/`।
+
+### কীভাবে চলে
+
+```
+১. ক্রেতা চেকআউটে "বিকাশ" বেছে অর্ডার করলেন
+      → অর্ডার তৈরি, payment_status = pending
+
+২. ফ্রন্টএন্ড: POST /payments/start/  { order_number }
+      → সার্ভার SSLCommerz-এ সেশন খুলে GatewayPageURL ফেরত দেয়
+
+৩. ক্রেতা ওই পাতায় গিয়ে টাকা দিলেন
+
+৪. SSLCommerz দুইভাবে জানায় —
+      IPN      → POST /payments/ipn/        (সার্ভার-টু-সার্ভার)
+      কলব্যাক  → POST /payments/callback/success/ (ব্রাউজার হয়ে)
+
+৫. দুইটাতেই একই কাজ: services.settle(tran_id, val_id)
+      → গেটওয়েকে সার্ভার থেকে জিজ্ঞাসা করে
+      → অঙ্ক ও মুদ্রা মেলে
+      → তবেই payment_status = paid
+```
+
+### ⚠️ যে নিয়মটা কখনো ভাঙা যাবে না
+
+**কলব্যাকের POST ডেটার একটা কথাও বিশ্বাস করা হয় না।**
+
+পেমেন্ট শেষে SSLCommerz ক্রেতার **ব্রাউজার দিয়ে** আমাদের success_url-এ
+POST পাঠায়, যাতে `status=VALID` আর টাকার অঙ্ক থাকে। কিন্তু যে কেউ
+নিজে হাতে ওই POST বানিয়ে পাঠাতে পারেন — এক টাকাও না দিয়ে অর্ডার
+"পরিশোধিত" বানিয়ে ফেলা যেত।
+
+তাই কলব্যাক থেকে শুধু `val_id` নেওয়া হয়, আর সেটা দিয়ে **আমাদের
+সার্ভার থেকে সরাসরি** SSLCommerz-কে জিজ্ঞাসা করা হয়। ওই উত্তরটা
+ক্রেতার হাত দিয়ে আসে না, তাই বদলানো যায় না।
+
+আর গেটওয়ে "টাকা কাটা হয়েছে" বললেই যথেষ্ট নয় — **কত টাকা** সেটা
+মেলানোর দায়িত্ব আমাদের। নইলে কেউ ৳১ দিয়ে ২০ হাজার টাকার অর্ডার
+পরিশোধিত করে ফেলতে পারতেন। `settle()`-এ সেই চেক আছে, আর
+`tests/test_payments.py`-তে সেটা ইচ্ছে করে ভেঙে যাচাই করা হয়েছে।
+
+### যে বাগটা ধরা পড়েছিল
+
+গেটওয়ে যোগ করার আগে `orders/services.py`-তে লেখা ছিল:
+
+```python
+payment_status = PENDING if payment_method == "cod" else PAID   # ❌
+```
+
+অর্থাৎ ক্রেতা শুধু "বিকাশ" বেছে নিলেই অর্ডারটা পরিশোধিত হয়ে যেত, এক
+টাকাও না দিয়ে। কোনো গেটওয়ে যুক্ত ছিল না বলে কেউ খেয়াল করেনি। এখন
+সব অর্ডারই `PENDING`-এ শুরু হয়, আর `PAID` বসানোর একমাত্র জায়গা
+`payments/services.py → settle()`।
+
+### সেটআপ
+
+`.env`-এ:
+
+```bash
+SSLCZ_STORE_ID=your_store_id
+SSLCZ_STORE_PASSWORD=your_store_password
+SSLCZ_SANDBOX=True
+SSLCZ_CALLBACK_BASE_URL=https://your-public-url
+SSLCZ_FRONTEND_URL=https://your-public-url
+```
+
+স্যান্ডবক্স অ্যাকাউন্ট ফ্রি — <https://developer.sslcommerz.com>।
+লাইভে যেতে ব্যবসার কাগজপত্র দিয়ে মার্চেন্ট অ্যাকাউন্ট লাগে।
+
+> ⚠️ **`CALLBACK_BASE_URL` অবশ্যই ইন্টারনেট থেকে পৌঁছানো যায় এমন হতে
+> হবে।** `localhost` দিলে SSLCommerz-এর সার্ভার আপনার মেশিনে
+> পৌঁছাতেই পারবে না, তাই IPN কখনো আসবে না আর অর্ডার চিরকাল
+> pending থাকবে। লোকালে পরীক্ষা করতে:
+>
+> ```bash
+> ngrok http 8080
+> ```
+>
+> তারপর সে যে `https://xxxx.ngrok-free.app` দেবে, সেটাই দুই জায়গায় বসান।
+
+### লেনদেনের ইতিহাস
+
+প্রতিটি চেষ্টা আলাদা সারি (`PaymentTransaction`) — প্রথমবার ব্যালেন্স
+কম, দ্বিতীয়বার OTP আসেনি, তৃতীয়বার সফল, তিনটাই থাকে। গেটওয়ের পুরো
+উত্তরটাও `gateway_response`-এ জমা। ক্রেতা "টাকা কেটেছে কিন্তু অর্ডার
+হয়নি" বললে এটাই একমাত্র প্রমাণ।
+
+Django admin-এ এগুলো **শুধু দেখা যায়, বদলানো যায় না** — হাতে বদলালে
+ডেটাবেস আর গেটওয়ের হিসাব আলাদা হয়ে যেত।
+
+---
+
+## ১১. Docker ও CI
 
 উপরের অনেকগুলো ধাপ (PostgreSQL, gunicorn, collectstatic, nginx) Docker
 নিজেই করে দেয় — [`docs/DOCKER.md`](../docs/DOCKER.md):
@@ -361,7 +457,7 @@ docker compose up --build      # → http://localhost:8080
 
 ---
 
-## ১১. লাইভে যাওয়ার আগে
+## ১২. লাইভে যাওয়ার আগে
 
 - [ ] `DJANGO_SECRET_KEY` বদলান, `DJANGO_DEBUG=False` করুন
 - [ ] `DJANGO_ALLOWED_HOSTS` ও `CORS_ALLOWED_ORIGINS`-এ আসল ডোমেইন দিন

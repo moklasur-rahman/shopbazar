@@ -1159,3 +1159,36 @@ export const vendorPanelApi = {
     return payout;
   },
 };
+
+/* ------------------------------- পেমেন্ট ------------------------------- */
+
+export const paymentsApi = {
+  /**
+   * মক মোডে আসল গেটওয়ে নেই, তাই ক্রেতাকে সাইটেরই একটা পাতায়
+   * পাঠানো হয় যেটা "সফল" ধরে নেয়।
+   *
+   * এটা ইচ্ছে করেই বাস্তবের চেয়ে সরল — মক মোডের কাজ UI দেখা,
+   * টাকার নিরাপত্তা যাচাই নয়। আসল যাচাই সবসময় সার্ভারে হয়
+   * (backend/apps/payments/services.py → settle)।
+   */
+  async start(orderNumber) {
+    await wait(600);
+    return {
+      gatewayUrl: `${window.location.origin}/payment/success/${orderNumber}?mock=1`,
+      tranId: `${orderNumber}-1`,
+    };
+  },
+
+  async status(orderNumber) {
+    await wait(250);
+    const order = loadOrders().find((o) => o.number === orderNumber);
+    if (!order) throw new Error("অর্ডারটি খুঁজে পাওয়া যায়নি");
+    return {
+      orderNumber,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      grandTotal: order.grandTotal,
+      transactions: [],
+    };
+  },
+};

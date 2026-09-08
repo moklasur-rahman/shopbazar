@@ -46,6 +46,7 @@ api_v1 = [
     path("vendors/", include("apps.vendors.urls")),
     path("promotions/", include("apps.promotions.urls")),
     path("", include("apps.orders.urls")),               # /checkout/ ও /orders/
+    path("payments/", include("apps.payments.urls")),
     path("vendor/", include("apps.vendors.panel_urls")),  # ভেন্ডর প্যানেল
     path("admin/", include("apps.staff.urls")),           # প্ল্যাটফর্ম অ্যাডমিন
 ]

@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.catalog",
     "apps.promotions",
     "apps.orders",
+    "apps.payments",
     "apps.payouts",
     "apps.staff",
 ]
@@ -336,6 +337,27 @@ LOGGING = {
 }
 
 # --------------------------------------------------- ব্যবসার নিয়ম
+
+# ------------------------------------------------------- পেমেন্ট গেটওয়ে
+
+# SSLCommerz — একটা ইন্টিগ্রেশনেই বিকাশ, নগদ, রকেট, কার্ড ও ব্যাংক।
+#
+# পরীক্ষার জন্য sandbox অ্যাকাউন্ট ফ্রি: https://developer.sslcommerz.com
+# লাইভে যেতে ব্যবসার কাগজপত্র দিয়ে মার্চেন্ট অ্যাকাউন্ট খুলতে হয়।
+SSLCOMMERZ = {
+    "STORE_ID": env("SSLCZ_STORE_ID", ""),
+    "STORE_PASSWORD": env("SSLCZ_STORE_PASSWORD", ""),
+    "SANDBOX": env_bool("SSLCZ_SANDBOX", True),
+
+    # গেটওয়ে পেমেন্ট শেষে এই ঠিকানায় ফিরে আসে। এটা **ইন্টারনেট থেকে
+    # পৌঁছানো যায়** এমন হতে হবে — localhost দিলে SSLCommerz-এর সার্ভার
+    # আপনার মেশিনে পৌঁছাতেই পারবে না। লোকাল পরীক্ষায় ngrok বা
+    # cloudflared দিয়ে একটা পাবলিক টানেল বানিয়ে সেটার ঠিকানা দিন।
+    "CALLBACK_BASE_URL": env("SSLCZ_CALLBACK_BASE_URL", "http://localhost:8080"),
+
+    # পেমেন্ট শেষে ক্রেতাকে সাইটের কোন ঠিকানায় ফেরত পাঠানো হবে
+    "FRONTEND_URL": env("SSLCZ_FRONTEND_URL", "http://localhost:8080"),
+}
 
 # ⚠️ এই মানগুলো তিন জায়গায় আছে — একটা বদলালে তিনটাই বদলাতে হবে:
 #      shared/business-rules.json      ← আসল সত্য

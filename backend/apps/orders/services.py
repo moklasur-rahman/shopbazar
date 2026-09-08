@@ -288,9 +288,16 @@ def _create_order(user, items, address, payment_method, coupon, idempotency_key)
         order_number=make_order_number(),
         shipping_address=address,
         payment_method=payment_method,
-        payment_status=(
-            Order.PaymentStatus.PENDING if payment_method == "cod" else Order.PaymentStatus.PAID
-        ),
+        # ⚠️ সব অর্ডারই PENDING হিসেবে শুরু হয় — অনলাইন পেমেন্টেও।
+        #
+        # আগে এখানে লেখা ছিল "cod না হলে PAID"। অর্থাৎ ক্রেতা শুধু
+        # "বিকাশ" বেছে নিলেই অর্ডারটা পরিশোধিত হয়ে যেত, এক টাকাও না
+        # দিয়ে। কোনো গেটওয়ে যুক্ত ছিল না বলে এটা ধরা পড়েনি।
+        #
+        # এখন PAID বসানোর একমাত্র জায়গা `apps/payments/services.py`
+        # → settle(), আর সেটা বসে শুধু গেটওয়েকে সার্ভার-টু-সার্ভার
+        # জিজ্ঞাসা করে টাকার অঙ্ক মিলিয়ে দেখার পর।
+        payment_status=Order.PaymentStatus.PENDING,
         coupon=coupon,
         idempotency_key=idempotency_key,
     )

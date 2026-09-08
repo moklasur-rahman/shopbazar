@@ -85,6 +85,14 @@ export const ENDPOINTS = {
     reportExport: "/admin/reports/export/",
   },
 
+  /** পেমেন্ট গেটওয়ে (SSLCommerz) */
+  payments: {
+    /** অর্ডারের জন্য গেটওয়ের পাতার ঠিকানা আনে */
+    start: "/payments/start/",
+    /** গেটওয়ে থেকে ফেরার পর টাকা সত্যিই পৌঁছেছে কি না জিজ্ঞাসা করে */
+    status: (orderNumber) => `/payments/status/${orderNumber}/`,
+  },
+
   /** ভেন্ডর প্যানেল — সব রেসপন্স শুধু লগইন করা ভেন্ডরের নিজের ডেটা */
   vendorPanel: {
     /** অনুমোদনের অপেক্ষায় থাকা বিক্রেতাও এটা ব্যবহার করতে পারেন */

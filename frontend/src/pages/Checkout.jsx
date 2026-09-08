@@ -144,6 +144,29 @@ export default function Checkout() {
       });
       setPlaced(true);
       clear();
+
+      // ক্যাশ অন ডেলিভারি ছাড়া বাকি সবই আগে টাকা নেয়। অর্ডারটা
+      // ইতিমধ্যেই তৈরি (payment_status = pending), এখন ক্রেতাকে
+      // গেটওয়ের পাতায় পাঠানো হয়। টাকা দেওয়ার পর SSLCommerz তাকে
+      // /payment/... এ ফেরত পাঠাবে।
+      if (payment !== "cod") {
+        try {
+          const { gatewayUrl } = await api.payments.start(order.number);
+          // replace নয়, assign — ক্রেতা ব্যাক চাপলে যেন চেকআউটে
+          // ফিরে না এসে অর্ডারের পাতায় যান
+          window.location.href = gatewayUrl;
+          return;
+        } catch (err) {
+          // অর্ডারটা হারায়নি, শুধু টাকা দেওয়া বাকি। তাই অর্ডারের
+          // পাতায় পাঠিয়ে দেওয়া হয় — ওখান থেকে আবার চেষ্টা করা যাবে।
+          toast.error(
+            err.message || "পেমেন্ট পাতা খোলা গেল না — অর্ডার থেকে আবার চেষ্টা করুন",
+          );
+          navigate(`/orders/${order.number}`, { replace: true });
+          return;
+        }
+      }
+
       navigate(`/order-success/${order.number}`, { replace: true });
     } catch (err) {
       toast.error(err.message || "অর্ডার করা গেল না, আবার চেষ্টা করুন");

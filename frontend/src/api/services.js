@@ -700,3 +700,49 @@ export const vendorPanelApi = {
     return http.post(ENDPOINTS.vendorPanel.payouts, { amount });
   },
 };
+
+/* ------------------------------- পেমেন্ট ------------------------------- */
+
+export const paymentsApi = {
+  /**
+   * অর্ডারের জন্য গেটওয়ের পাতার ঠিকানা আনে।
+   *
+   * ফেরত দেয় { gatewayUrl, tranId }। ফ্রন্টএন্ড এরপর
+   * window.location.href বসিয়ে ক্রেতাকে ওখানে পাঠিয়ে দেয় —
+   * নতুন ট্যাব নয়, কারণ গেটওয়ে শেষে আমাদের সাইটেই ফেরত পাঠাবে।
+   */
+  async start(orderNumber) {
+    const raw = await http.post(ENDPOINTS.payments.start, {
+      order_number: orderNumber,
+    });
+    return { gatewayUrl: raw.gateway_url, tranId: raw.tran_id };
+  },
+
+  /**
+   * টাকা পৌঁছেছে কি না।
+   *
+   * ⚠️ গেটওয়ে ফেরার সময় URL-এ যা লেখা থাকে সেটা দেখানো হয় না —
+   * ওটা ক্রেতার ব্রাউজার হয়ে আসা, বদলে ফেলা যায়। সার্ভার ডেটাবেসে
+   * যা সত্যি সেটাই একমাত্র উত্তর।
+   */
+  async status(orderNumber) {
+    const raw = await http.get(ENDPOINTS.payments.status(orderNumber));
+    return {
+      orderNumber: raw.order_number,
+      paymentMethod: raw.payment_method,
+      paymentStatus: raw.payment_status,
+      grandTotal: Number(raw.grand_total ?? 0),
+      transactions: (raw.transactions ?? []).map((t) => ({
+        id: t.id,
+        tranId: t.tran_id,
+        status: t.status,
+        statusLabel: t.status_label,
+        amount: Number(t.amount ?? 0),
+        cardType: t.card_type,
+        errorReason: t.error_reason,
+        paidAt: t.paid_at,
+        createdAt: t.created_at,
+      })),
+    };
+  },
+};

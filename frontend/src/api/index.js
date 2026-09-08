@@ -20,6 +20,7 @@ export const api = {
   vendors: impl.vendorsApi,
   checkout: impl.checkoutApi,
   orders: impl.ordersApi,
+  payments: impl.paymentsApi,
   vendorPanel: impl.vendorPanelApi,
   admin: impl.adminApi,
 };
