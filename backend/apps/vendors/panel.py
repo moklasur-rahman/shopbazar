@@ -12,7 +12,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -36,6 +37,11 @@ from common.utils import unique_slug
 
 from .models import VendorKYC
 from .serializers import VendorKYCSerializer, VendorProductWriteSerializer
+
+#: অ্যাগ্রিগেটের ডিফল্ট — Sum() খালি টেবিলে None দেয়, তাই শূন্যটা
+#: SQL-এই বসানো হয় (COALESCE)। পাইথনে `or Decimal("0")` লিখলে একটা
+#: জায়গায় ভুলে গেলে None বেরিয়ে যেত।
+ZERO = Decimal("0")
 
 BN_WEEKDAYS = ["সোম", "মঙ্গল", "বুধ", "বৃহঃ", "শুক্র", "শনি", "রবি"]
 
@@ -150,28 +156,36 @@ class VendorStatsView(VendorScopedMixin, APIView):
             status=VendorOrder.Status.CANCELLED
         )
 
-        today_sales = parcels.filter(created_at__gte=today).aggregate(
-            total=Sum("subtotal")
-        )["total"] or Decimal("0")
-
-        month_sales = parcels.filter(created_at__gte=month_start).aggregate(
-            total=Sum("subtotal")
-        )["total"] or Decimal("0")
+        # আজ আর এই মাসের বিক্রি একটাই কোয়েরিতে — দুইবার একই টেবিলে
+        # যাওয়ার দরকার নেই, filter=Q(...) দিয়ে নামিয়ে আনা যায়
+        money = parcels.filter(created_at__gte=month_start).aggregate(
+            today=Sum("subtotal", filter=Q(created_at__gte=today), default=ZERO),
+            month=Sum("subtotal", default=ZERO),
+        )
+        today_sales, month_sales = money["today"], money["month"]
 
         products = Product.objects.filter(vendor=vendor)
 
-        # গত ৭ দিনের বিক্রি — চার্টের জন্য
-        trend = []
-        for offset in range(6, -1, -1):
-            day_start = today - timedelta(days=offset)
-            day_end = day_start + timedelta(days=1)
-            amount = parcels.filter(
-                created_at__gte=day_start, created_at__lt=day_end
-            ).aggregate(total=Sum("subtotal"))["total"] or Decimal("0")
-            trend.append({
-                "day": BN_WEEKDAYS[day_start.weekday()],
-                "amount": amount,
-            })
+        # গত ৭ দিনের বিক্রি (চার্ট) — একটাই কোয়েরিতে।
+        #
+        # আগে প্রতিটি দিনের জন্য আলাদা aggregate চলত, মানে শুধু এই
+        # অংশেই ৭টা কোয়েরি। ভেন্ডর দিনে বহুবার ড্যাশবোর্ড খোলেন, তাই
+        # এখানে বাড়তি রাউন্ড-ট্রিপ সবচেয়ে বেশি টের পাওয়া যায়।
+        week_start = today - timedelta(days=6)
+        daily = {
+            row["day"]: row["total"]
+            for row in parcels.filter(created_at__gte=week_start)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(total=Sum("subtotal", default=ZERO))
+        }
+        trend = [
+            {
+                "day": BN_WEEKDAYS[(today - timedelta(days=offset)).weekday()],
+                "amount": daily.get((today - timedelta(days=offset)).date(), ZERO),
+            }
+            for offset in range(6, -1, -1)
+        ]
 
         return Response({
             "today_sales": today_sales,
@@ -301,7 +315,10 @@ class VendorOrderViewSet(VendorScopedMixin, viewsets.ModelViewSet):
         queryset = (
             VendorOrder.objects.filter(vendor=self.vendor)
             .select_related("vendor", "order")
-            .prefetch_related("items")
+            # `items__review` প্রিফেচ করা হয় কারণ OrderItem.can_review
+            # `hasattr(self, "review")` দেখে — প্রিফেচ ছাড়া প্রতিটি
+            # আইটেমের জন্য একটা করে কোয়েরি যেত
+            .prefetch_related("items", "items__review")
         )
         status_filter = self.request.query_params.get("status")
         if status_filter:

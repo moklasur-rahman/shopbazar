@@ -34,6 +34,11 @@ from .serializers import (
     AdminVendorDetailSerializer, AdminVendorListSerializer,
 )
 
+#: অ্যাগ্রিগেটের ডিফল্ট — Sum() খালি টেবিলে None দেয়, তাই SQL-এই
+#: শূন্য বসিয়ে দেওয়া হয় (COALESCE)। পাইথনে `or Decimal("0")` লিখলে
+#: একটা কী-তে ভুলে গেলে None বেরিয়ে যেত।
+ZERO = Decimal("0")
+
 BN_WEEKDAYS = ["সোম", "মঙ্গল", "বুধ", "বৃহঃ", "শুক্র", "শনি", "রবি"]
 
 
@@ -66,13 +71,13 @@ class AdminStatsView(StaffView):
         # আজ ও এই মাসের হিসাব একটাই কোয়েরিতে। আগে তিনবার একই টেবিলে
         # যাওয়া হতো — filter=Q(...) দিয়ে সেটা একবারে নামানো যায়।
         money = parcels.filter(created_at__gte=month_start).aggregate(
-            gmv_today=Sum("subtotal", filter=Q(created_at__gte=today)),
-            gmv_month=Sum("subtotal"),
-            commission_month=Sum("commission_amount"),
+            gmv_today=Sum("subtotal", filter=Q(created_at__gte=today), default=ZERO),
+            gmv_month=Sum("subtotal", default=ZERO),
+            commission_month=Sum("commission_amount", default=ZERO),
         )
-        gmv_today = money["gmv_today"] or Decimal("0")
-        gmv_month = money["gmv_month"] or Decimal("0")
-        commission_month = money["commission_month"] or Decimal("0")
+        gmv_today = money["gmv_today"]
+        gmv_month = money["gmv_month"]
+        commission_month = money["commission_month"]
 
         # গত ৭ দিনের বিক্রি — একটাই কোয়েরিতে।
         #
@@ -88,7 +93,7 @@ class AdminStatsView(StaffView):
             for row in parcels.filter(created_at__gte=week_start)
             .annotate(day=TruncDate("created_at"))
             .values("day")
-            .annotate(total=Sum("subtotal"))
+            .annotate(total=Sum("subtotal", default=ZERO))
         }
 
         trend = []
@@ -121,7 +126,7 @@ class AdminStatsView(StaffView):
         waiting = [Payout.Status.REQUESTED, Payout.Status.PROCESSING]
         payout_stats = Payout.objects.aggregate(
             pending_count=Count("id", filter=Q(status__in=waiting)),
-            pending_amount=Sum("amount", filter=Q(status__in=waiting)),
+            pending_amount=Sum("amount", filter=Q(status__in=waiting), default=ZERO),
             processing=Count("id", filter=Q(status=Payout.Status.PROCESSING)),
         )
 
@@ -135,7 +140,7 @@ class AdminStatsView(StaffView):
             "vendors": vendor_counts,
             "products": product_counts,
             "payouts_pending": payout_stats["pending_count"],
-            "payouts_pending_amount": payout_stats["pending_amount"] or Decimal("0"),
+            "payouts_pending_amount": payout_stats["pending_amount"],
             "sales_trend": trend,
             # ড্যাশবোর্ডের "যা করা বাকি" তালিকা
             "todo": {

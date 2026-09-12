@@ -46,6 +46,10 @@ class Vendor(TimeStamped):
         verbose_name = "দোকান"
         verbose_name_plural = "দোকান"
         ordering = ["-rating_avg", "shop_name"]
+        # দোকানের তালিকা `status=approved` ছেঁকে রেটিং অনুযায়ী সাজায়।
+        # Product-এর মতোই: ফিল্টার আর সাজানো এক ইনডেক্সে থাকলে
+        # ডেটাবেসকে আলাদা করে সর্ট করতে হয় না।
+        indexes = [models.Index(fields=["status", "-rating_avg", "shop_name"])]
 
     def __str__(self):
         return self.shop_name

@@ -22,6 +22,16 @@ from apps.catalog.models import Product
 from apps.orders.models import OrderItem, VendorOrder
 from common.permissions import IsStaffUser
 
+#: অ্যাগ্রিগেটের ডিফল্ট।
+#:
+#: Django-র Sum() খালি টেবিলে None দেয়, তাই আগে প্রতিটা জায়গায়
+#: `or Decimal("0")` লেখা হতো — পুরো ব্যাকএন্ডে ২৯ বার। একটা কী-তে
+#: ভুলে গেলে সেখানে None যেত আর ফ্রন্টএন্ডে "null টাকা" দেখাত।
+#:
+#: `default=` দিলে শূন্যটা SQL-এই বসে (COALESCE), তাই ভুলে যাওয়ার
+#: সুযোগই থাকে না। Django 4.0 থেকে আছে।
+ZERO = Decimal("0")
+
 BN_MONTHS = [
     "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন",
     "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর",
@@ -94,10 +104,10 @@ class SalesReportView(ReportView):
             parcels.annotate(bucket=trunc("created_at"))
             .values("bucket")
             .annotate(
-                sales=Sum("subtotal"),
-                discount=Sum("discount"),
-                shipping=Sum("shipping_fee"),
-                commission=Sum("commission_amount"),
+                sales=Sum("subtotal", default=ZERO),
+                discount=Sum("discount", default=ZERO),
+                shipping=Sum("shipping_fee", default=ZERO),
+                commission=Sum("commission_amount", default=ZERO),
                 parcels=Count("id"),
             )
             .order_by("bucket")
@@ -114,18 +124,18 @@ class SalesReportView(ReportView):
             series.append({
                 "label": label,
                 "date": bucket.date().isoformat(),
-                "sales": row["sales"] or Decimal("0"),
-                "discount": row["discount"] or Decimal("0"),
-                "shipping": row["shipping"] or Decimal("0"),
-                "commission": row["commission"] or Decimal("0"),
+                "sales": row["sales"],
+                "discount": row["discount"],
+                "shipping": row["shipping"],
+                "commission": row["commission"],
                 "parcels": row["parcels"],
             })
 
         totals = parcels.aggregate(
-            sales=Sum("subtotal"),
-            discount=Sum("discount"),
-            shipping=Sum("shipping_fee"),
-            commission=Sum("commission_amount"),
+            sales=Sum("subtotal", default=ZERO),
+            discount=Sum("discount", default=ZERO),
+            shipping=Sum("shipping_fee", default=ZERO),
+            commission=Sum("commission_amount", default=ZERO),
             parcels=Count("id"),
         )
 
@@ -137,10 +147,10 @@ class SalesReportView(ReportView):
             "group_by": group_by,
             "series": series,
             "totals": {
-                "sales": totals["sales"] or Decimal("0"),
-                "discount": totals["discount"] or Decimal("0"),
-                "shipping": totals["shipping"] or Decimal("0"),
-                "commission": totals["commission"] or Decimal("0"),
+                "sales": totals["sales"],
+                "discount": totals["discount"],
+                "shipping": totals["shipping"],
+                "commission": totals["commission"],
                 "parcels": totals["parcels"] or 0,
                 "delivered": delivered,
                 # ডেলিভারি হার — কত শতাংশ পার্সেল সফলভাবে পৌঁছেছে
@@ -168,9 +178,9 @@ class VendorReportView(ReportView):
             base_parcels(start, end)
             .values("vendor__id", "vendor__shop_name", "vendor__slug", "vendor__district")
             .annotate(
-                sales=Sum("subtotal"),
-                commission=Sum("commission_amount"),
-                payable=Sum("payable"),
+                sales=Sum("subtotal", default=ZERO),
+                commission=Sum("commission_amount", default=ZERO),
+                payable=Sum("payable", default=ZERO),
                 parcels=Count("id"),
             )
             .order_by("-sales")
@@ -185,9 +195,9 @@ class VendorReportView(ReportView):
                     "shop_name": row["vendor__shop_name"],
                     "slug": row["vendor__slug"],
                     "district": row["vendor__district"],
-                    "sales": row["sales"] or Decimal("0"),
-                    "commission": row["commission"] or Decimal("0"),
-                    "payable": row["payable"] or Decimal("0"),
+                    "sales": row["sales"],
+                    "commission": row["commission"],
+                    "payable": row["payable"],
                     "parcels": row["parcels"],
                 }
                 for row in rows
@@ -218,14 +228,14 @@ class ProductReportView(ReportView):
         # আর Django "is an aggregate" বলে থেমে যায়। তাই `sold` নাম দেওয়া।
         top_products = (
             items.values("product_title", "product_slug")
-            .annotate(sold=Sum("quantity"), revenue=Sum(LINE_TOTAL))
+            .annotate(sold=Sum("quantity"), revenue=Sum(LINE_TOTAL, default=ZERO))
             .order_by("-revenue")[:15]
         )
 
         by_category = (
             items.filter(variant__isnull=False)
             .values("variant__product__category__name", "variant__product__category__slug")
-            .annotate(sold=Sum("quantity"), revenue=Sum(LINE_TOTAL))
+            .annotate(sold=Sum("quantity"), revenue=Sum(LINE_TOTAL, default=ZERO))
             .order_by("-revenue")
         )
 
@@ -243,7 +253,7 @@ class ProductReportView(ReportView):
                     "title": row["product_title"],
                     "slug": row["product_slug"],
                     "quantity": row["sold"],
-                    "revenue": row["revenue"] or Decimal("0"),
+                    "revenue": row["revenue"],
                 }
                 for row in top_products
             ],
@@ -252,7 +262,7 @@ class ProductReportView(ReportView):
                     "name": row["variant__product__category__name"] or "অজানা",
                     "slug": row["variant__product__category__slug"] or "",
                     "quantity": row["sold"],
-                    "revenue": row["revenue"] or Decimal("0"),
+                    "revenue": row["revenue"],
                 }
                 for row in by_category
             ],
@@ -342,9 +352,9 @@ class ExportView(ReportView):
             .values("vendor__shop_name", "vendor__district", "vendor__status")
             .annotate(
                 parcels=Count("id"),
-                sales=Sum("subtotal"),
-                commission=Sum("commission_amount"),
-                payable=Sum("payable"),
+                sales=Sum("subtotal", default=ZERO),
+                commission=Sum("commission_amount", default=ZERO),
+                payable=Sum("payable", default=ZERO),
             )
             .order_by("-sales")
         )

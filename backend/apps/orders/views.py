@@ -134,7 +134,13 @@ class OrderViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
                 Prefetch(
                     "vendor_orders",
                     queryset=VendorOrder.objects.select_related("vendor").prefetch_related(
-                        Prefetch("items", queryset=OrderItem.objects.all())
+                        # `review` সহ — OrderItem.can_review `hasattr(self, "review")`
+                    # দেখে, তাই প্রিফেচ না করলে প্রতিটি আইটেমের জন্য একটা
+                    # করে কোয়েরি যেত (৫টি আইটেমে ৫টি বাড়তি কোয়েরি)
+                    Prefetch(
+                        "items",
+                        queryset=OrderItem.objects.select_related("review"),
+                    )
                     ),
                 )
             )
@@ -286,7 +292,13 @@ class TrackOrderView(APIView):
                 Prefetch(
                     "vendor_orders",
                     queryset=VendorOrder.objects.select_related("vendor").prefetch_related(
-                        Prefetch("items", queryset=OrderItem.objects.all())
+                        # `review` সহ — OrderItem.can_review `hasattr(self, "review")`
+                    # দেখে, তাই প্রিফেচ না করলে প্রতিটি আইটেমের জন্য একটা
+                    # করে কোয়েরি যেত (৫টি আইটেমে ৫টি বাড়তি কোয়েরি)
+                    Prefetch(
+                        "items",
+                        queryset=OrderItem.objects.select_related("review"),
+                    )
                     ),
                 )
             )

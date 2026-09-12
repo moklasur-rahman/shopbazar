@@ -86,9 +86,28 @@ class Product(TimeStamped):
         verbose_name = "পণ্য"
         verbose_name_plural = "পণ্য"
         ordering = ["-created_at"]
+
+        # ⚠️ প্রতিটা ইনডেক্স `status` দিয়ে শুরু — এটাই আসল কথা।
+        #
+        # তালিকার সব কোয়েরিই আগে `status=live` দিয়ে ছাঁকে, তারপর সাজায়
+        # (views.py → ordering_fields)। ফিল্টার আর সাজানো যদি **একই**
+        # ইনডেক্সে থাকে, ডেটাবেস ইনডেক্স ধরে হেঁটেই প্রথম ১২টা তুলে
+        # আনতে পারে — কোনো সর্ট করতেই হয় না।
+        #
+        # আলাদা আলাদা ইনডেক্স থাকলে লাভ হয় না, কারণ ডেটাবেস একটা
+        # কোয়েরিতে একটাই ইনডেক্স বাছে: তখন ২৭ হাজার সারি ছেঁকে
+        # সবগুলো সাজিয়ে তার থেকে ১২টা নেয়।
+        #
+        # ৩০,০০০ পণ্যে মেপে দেখা (SQLite):
+        #     -created_at   ১১.৭ms  ← কম্পোজিট ছিল
+        #     -sold_count   ৮১.০ms  ← ইনডেক্স ছিল না
+        #     price         ৮২.৬ms  ← শুধু price-এ ইনডেক্স, কাজে আসেনি
+        #     -rating_avg   ৮০.০ms  ← ইনডেক্স ছিল না
         indexes = [
             models.Index(fields=["status", "-created_at"]),
-            models.Index(fields=["price"]),
+            models.Index(fields=["status", "-sold_count"]),
+            models.Index(fields=["status", "price"]),
+            models.Index(fields=["status", "-rating_avg"]),
         ]
 
     def __str__(self):
@@ -137,6 +156,10 @@ class ProductImage(TimeStamped):
         verbose_name = "পণ্যের ছবি"
         verbose_name_plural = "পণ্যের ছবি"
         ordering = ["sort_order", "id"]
+        # ছবি সবসময় একটা পণ্যের জন্যই আনা হয়, sort_order অনুযায়ী সাজিয়ে
+        # (catalog/views.py → live_products() এর Prefetch)। ফিল্টার আর
+        # সাজানো এক ইনডেক্সে রাখলে আলাদা সর্ট করতে হয় না।
+        indexes = [models.Index(fields=["product", "sort_order"])]
 
     def __str__(self):
         return f"{self.product.title} — ছবি {self.sort_order + 1}"

@@ -95,15 +95,13 @@ class LedgerEntry(TimeStamped):
     @classmethod
     def available_balance(cls, vendor):
         """তোলা যাবে এমন টাকা: হোল্ড শেষ, আর এখনো কোনো পে-আউটে যায়নি।"""
-        total = cls.objects.filter(
+        return cls.objects.filter(
             vendor=vendor, payout__isnull=True, release_at__lte=timezone.now()
-        ).aggregate(total=Sum("amount"))["total"]
-        return total or Decimal("0")
+        ).aggregate(total=Sum("amount", default=Decimal("0")))["total"]
 
     @classmethod
     def on_hold_balance(cls, vendor):
         """এখনো হোল্ডে আছে — রিটার্নের সময় পার হয়নি।"""
-        total = cls.objects.filter(
+        return cls.objects.filter(
             vendor=vendor, payout__isnull=True, release_at__gt=timezone.now()
-        ).aggregate(total=Sum("amount"))["total"]
-        return total or Decimal("0")
+        ).aggregate(total=Sum("amount", default=Decimal("0")))["total"]

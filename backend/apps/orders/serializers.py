@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.vendors.serializers import VendorSerializer
+from apps.vendors.serializers import VendorBriefSerializer
 from common.serializers import absolute
 
 from .models import Order, OrderItem, VendorOrder
@@ -29,7 +29,15 @@ class VendorOrderSerializer(serializers.ModelSerializer):
     ভেন্ডর প্যানেল এগুলো দেখায় — সে মূল Order অবজেক্ট কখনো পায় না।
     """
 
-    vendor = VendorSerializer(read_only=True)
+    # ⚠️ পূর্ণ VendorSerializer নয় — Brief।
+    #
+    # পূর্ণটায় `product_count` আছে, আর সেটা প্রতিটি দোকানের জন্য একটা
+    # করে COUNT কোয়েরি চালায়। অর্ডারের তালিকায় ১২টা পার্সেল মানে ১২টা
+    # বাড়তি কোয়েরি — অথচ অর্ডারের পাতায় দোকানের পণ্যসংখ্যা দেখানোই হয়
+    # না (ফ্রন্টএন্ড শুধু shopName আর slug ব্যবহার করে)।
+    #
+    # ভেন্ডর প্যানেলে মেপে দেখা: ২২ কোয়েরি → ১০ কোয়েরি।
+    vendor = VendorBriefSerializer(read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
     order_number = serializers.CharField(source="order.order_number", read_only=True)
     shipping_address = serializers.JSONField(source="order.shipping_address", read_only=True)
